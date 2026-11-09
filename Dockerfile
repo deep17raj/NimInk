@@ -10,7 +10,6 @@ RUN npm ci
 
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY . .
 RUN npm run build --workspace=apps/web
 
