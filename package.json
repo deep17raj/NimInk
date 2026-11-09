@@ -1,0 +1,34 @@
+{
+  "name": "nimink",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Write. Earn. Stake. — A writing and earning Mini App for Nimiq Pay",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=apps/api & npm run dev --workspace=apps/web",
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "build": "npm run build --workspace=packages/shared && npm run build --workspace=apps/api && npm run build --workspace=apps/web",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "seed": "npm run seed --workspace=apps/api",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT",
+  "allowScripts": {
+    "better-sqlite3@11.10.0": true,
+    "esbuild@0.28.2": true,
+    "esbuild@0.25.12": true,
+    "vue-demi@0.14.10": true
+  },
+  "devDependencies": {
+    "vitest": "^5.1.0"
+  }
+}

@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.env
+*.db
+*.sqlite
+.vite/
+.turbo/
+coverage/
+playwright-report/
+test-results/
+*.log
+.DS_Store
+Thumbs.db
+
+apps/api/uploads/*
+!apps/api/uploads/.gitkeep
