@@ -147,6 +147,7 @@ demoRoutes.post('/reset', async (c) => {
     db.prepare('DELETE FROM demo_stakes').run()
     db.prepare('DELETE FROM payouts').run()
     db.prepare('DELETE FROM pools').run()
+    db.prepare('DELETE FROM article_reads').run()
     db.prepare('DELETE FROM read_sessions').run()
     db.prepare('DELETE FROM tips').run()
     db.prepare('DELETE FROM submissions').run()

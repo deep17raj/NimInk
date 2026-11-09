@@ -36,11 +36,10 @@ poolRoutes.post('/distribute', requireAuth, async (c) => {
   // Get article scores for the pool period
   const articles = db.prepare(
     `SELECT a.id, a.author_id,
-       COUNT(rs.id) as read_count,
-       AVG(CASE WHEN rs.quiz_passed = 1 THEN 1.0 ELSE 0.0 END) as pass_rate
+       COUNT(ar.user_id) as read_count
      FROM articles a
-     LEFT JOIN read_sessions rs ON rs.article_id = a.id AND rs.valid = 1
-       AND rs.started_at >= ? AND rs.started_at <= ?
+     LEFT JOIN article_reads ar ON ar.article_id = a.id
+       AND ar.read_at >= ? AND ar.read_at <= ?
      WHERE a.status = 'published'
      GROUP BY a.id
      HAVING read_count > 0`
@@ -50,12 +49,11 @@ poolRoutes.post('/distribute', requireAuth, async (c) => {
   const authorScores: Record<string, number> = {}
   for (const article of articles) {
     const reads = db.prepare(
-      `SELECT weight FROM read_sessions
-       WHERE article_id = ? AND valid = 1
-       AND started_at >= ? AND started_at <= ?`
+      `SELECT weight FROM article_reads
+       WHERE article_id = ? AND read_at >= ? AND read_at <= ?`
     ).all(article.id, pool.week_start, pool.week_end) as any[]
 
-    const score = calculateArticleScore(reads, article.pass_rate || 0)
+    const score = calculateArticleScore(reads)
     authorScores[article.author_id] = (authorScores[article.author_id] || 0) + score
   }
 

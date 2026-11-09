@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
@@ -20,12 +20,8 @@ const wallet = useWalletStore()
 const article = ref<any>(null)
 const loading = ref(true)
 const error = ref('')
-const readProgress = ref(0)
-const readSessionId = ref('')
-const quizVisible = ref(false)
-const quizAnswer = ref<number | null>(null)
-const quizResult = ref<'pass' | 'fail' | null>(null)
-const verifiedRead = ref(false)
+const readCounted = ref(false)
+const readCountError = ref('')
 const bookmarked = ref(false)
 
 const showTip = ref(false)
@@ -63,31 +59,21 @@ const timeAgo = computed(() => {
   return new Date(article.value.createdAt).toLocaleDateString()
 })
 
-let scrollObserver: (() => void) | null = null
-let readTimer: ReturnType<typeof setTimeout> | undefined
-let finishingRead = false
-let pageMounted = false
+const readCountRequests = new Set<string>()
+const countedReadKeys = new Set<string>()
 
-function getReadDeviceId() {
-  const key = 'nimink_read_device_id'
-  try {
-    const existing = localStorage.getItem(key)
-    if (existing) return existing
-    const id = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`
-    localStorage.setItem(key, id)
-    return id
-  } catch {
-    return window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`
-  }
-}
+watch(
+  () => [article.value?.id, auth.user?.id] as const,
+  ([articleId, userId]) => {
+    if (articleId && userId) void countArticleRead(articleId, userId)
+  },
+  { immediate: true },
+)
 
 onMounted(async () => {
-  pageMounted = true
   try {
     const { article: a } = await api.get<{ article: any }>(`/api/articles/${route.params.id}`)
     article.value = a
-    startReadSession()
-    setupScrollTracking()
   } catch (e: any) {
     error.value = e.error || 'Failed to load article'
   } finally {
@@ -95,44 +81,35 @@ onMounted(async () => {
   }
 })
 
-onUnmounted(() => {
-  pageMounted = false
-  if (scrollObserver) scrollObserver()
-  if (readTimer) clearTimeout(readTimer)
-})
-
-async function startReadSession() {
-  if (isOwnArticle.value || !auth.isConnected || article.value?.locked) return
+async function countArticleRead(articleId: string, userId: string) {
+  const key = `${articleId}:${userId}`
+  if (countedReadKeys.has(key) || readCountRequests.has(key)) return
+  readCountRequests.add(key)
+  readCountError.value = ''
   try {
-    const { sessionId, minimumReadSeconds } = await api.post<{ sessionId: string; minimumReadSeconds: number }>('/api/reads/start', {
-      articleId: article.value.id,
-      deviceId: getReadDeviceId(),
+    const result = await api.post<{
+      counted: boolean
+      alreadyRead: boolean
+      verifiedReadCount: number
+    }>('/api/reads/count', {
+      articleId,
     })
-    readSessionId.value = sessionId
-    readTimer = setTimeout(() => { void finishReadSession() }, minimumReadSeconds * 1000)
-    window.dispatchEvent(new Event('scroll'))
+    countedReadKeys.add(key)
+    if (article.value?.id === articleId && auth.user?.id === userId) {
+      readCounted.value = true
+      article.value.verifiedReadCount = result.verifiedReadCount
+    }
   } catch (e: any) {
-    if (e.code === 'ALREADY_READ' || e.code === 'DEVICE_DUPLICATE') verifiedRead.value = true
+    readCountError.value = e.error || 'Could not count this read. Try again.'
+  } finally {
+    readCountRequests.delete(key)
   }
 }
 
-async function finishReadSession() {
-  if (!readSessionId.value || verifiedRead.value || finishingRead) return
-  finishingRead = true
-  try {
-    const { valid } = await api.post<{ valid: boolean }>('/api/reads/finish', {
-      sessionId: readSessionId.value,
-    })
-    if (valid) {
-      verifiedRead.value = true
-      if (article.value) article.value.verifiedReadCount = Number(article.value.verifiedReadCount || 0) + 1
-    }
-  } catch {
-    // The session can be retried if the network briefly fails.
-    if (pageMounted) readTimer = setTimeout(() => { void finishReadSession() }, 3000)
-  } finally {
-    finishingRead = false
-  }
+function retryReadCount() {
+  const articleId = article.value?.id
+  const userId = auth.user?.id
+  if (articleId && userId) void countArticleRead(articleId, userId)
 }
 
 async function confirmPremiumPurchase() {
@@ -164,7 +141,6 @@ async function confirmPremiumPurchase() {
     const { article: updated } = await api.get<{ article: any }>(`/api/articles/${article.value.id}`)
     article.value = updated
     try { localStorage.removeItem(pendingKey) } catch {}
-    startReadSession()
     toast.value = { show: true, message: 'Premium access unlocked.', type: 'success' }
   } catch (e: any) {
     toast.value = {
@@ -177,29 +153,6 @@ async function confirmPremiumPurchase() {
   } finally {
     premiumLoading.value = false
   }
-}
-
-function setupScrollTracking() {
-  const handler = () => {
-    const scrollable = document.documentElement
-    const scrollHeight = scrollable.scrollHeight - scrollable.clientHeight
-    const progress = scrollHeight <= 0
-      ? 100
-      : Math.min(100, Math.round((scrollable.scrollTop / scrollHeight) * 100))
-    readProgress.value = progress
-
-    if (progress >= 90 && article.value?.quizJson && !quizVisible.value) {
-      quizVisible.value = true
-    }
-  }
-
-  window.addEventListener('scroll', handler, { passive: true })
-  scrollObserver = () => window.removeEventListener('scroll', handler)
-}
-
-function submitQuiz() {
-  if (quizAnswer.value === null || !article.value?.quizJson) return
-  quizResult.value = quizAnswer.value === article.value.quizJson.correctIndex ? 'pass' : 'fail'
 }
 
 function selectTipAmount(nim: number) {
@@ -294,11 +247,6 @@ async function submitReport() {
 </script>
 
 <template>
-  <!-- Reading progress bar -->
-  <div class="fixed top-0 left-0 right-0 h-[2px] z-50 md:max-w-[414px] md:mx-auto">
-    <div class="h-full bg-gradient-to-r from-[#1F2348] to-[#0582CA] transition-all duration-300" :style="{ width: readProgress + '%' }" />
-  </div>
-
   <!-- Loading -->
   <div v-if="loading" class="px-6 pt-16">
     <div class="skeleton h-7 w-4/5 mb-3" />
@@ -392,36 +340,16 @@ async function submitReport() {
         </span>
       </div>
 
-      <!-- Quiz -->
-      <div v-if="quizVisible && article.quizJson" class="mt-10 rounded-2xl border border-gray-200 dark:border-[#333] p-5">
-        <h3 class="font-bold mb-3 text-[#1a1a1a] dark:text-white text-[15px]">{{ t('article.quiz.title') }}</h3>
-        <p class="text-[14px] mb-4 text-gray-600 dark:text-gray-400">{{ article.quizJson.question }}</p>
-        <div class="space-y-2">
-          <button
-            v-for="(opt, idx) in article.quizJson.options"
-            :key="idx"
-            @click="quizAnswer = idx"
-            class="w-full text-left px-4 py-3.5 rounded-xl border transition-all min-h-touch text-[14px]"
-            :class="quizAnswer === idx
-              ? 'border-[#1a1a1a] bg-gray-50 dark:border-white dark:bg-white/5 font-medium'
-              : 'border-gray-200 dark:border-[#333] hover:border-gray-300 dark:hover:border-[#444]'"
-          >
-            {{ opt }}
-          </button>
-        </div>
-        <button @click="submitQuiz" class="btn-primary w-full mt-4" :disabled="quizAnswer === null">
-          Submit
-        </button>
-        <p v-if="quizResult === 'pass'" class="text-green-600 text-sm mt-3 font-medium text-center">{{ t('article.quiz.pass') }}</p>
-        <p v-if="quizResult === 'fail'" class="text-red-500 text-sm mt-3 text-center">{{ t('article.quiz.fail') }}</p>
-      </div>
-
-      <!-- Verified read badge -->
-      <div v-if="verifiedRead" class="mt-8 rounded-2xl border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/30 text-center py-4">
+      <!-- Read status -->
+      <div v-if="readCounted" class="mt-8 rounded-2xl border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/30 text-center py-4">
         <div class="flex items-center justify-center gap-2">
           <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          <p class="text-green-700 dark:text-green-300 font-semibold text-[14px]">Verified read</p>
+          <p class="text-green-700 dark:text-green-300 font-semibold text-[14px]">Read counted</p>
         </div>
+      </div>
+      <div v-else-if="readCountError" class="mt-6 flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900 dark:bg-red-950/30">
+        <p class="text-[13px] text-red-700 dark:text-red-300">{{ readCountError }}</p>
+        <button @click="retryReadCount" class="shrink-0 text-[13px] font-semibold text-red-800 underline dark:text-red-200">Retry</button>
       </div>
 
       <!-- Report -->

@@ -17,7 +17,6 @@ import TopBar from '@/components/TopBar.vue'
       <h2>Quality standards</h2>
       <ul>
         <li>Articles should be original work. Plagiarism will result in content removal.</li>
-        <li>Articles must include a quiz question that tests comprehension of the content.</li>
         <li>Write clearly and provide value to readers.</li>
       </ul>
 

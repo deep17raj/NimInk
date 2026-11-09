@@ -51,6 +51,14 @@ export function initializeDatabase(dbPath: string): Database.Database {
       expired INTEGER NOT NULL DEFAULT 0
     );
 
+    CREATE TABLE IF NOT EXISTS article_reads (
+      article_id TEXT NOT NULL REFERENCES articles(id),
+      user_id TEXT NOT NULL REFERENCES users(id),
+      read_at TEXT NOT NULL DEFAULT (datetime('now')),
+      weight REAL NOT NULL DEFAULT 1,
+      PRIMARY KEY (article_id, user_id)
+    );
+
     CREATE TABLE IF NOT EXISTS tips (
       id TEXT PRIMARY KEY,
       article_id TEXT NOT NULL REFERENCES articles(id),
@@ -204,6 +212,15 @@ export function initializeDatabase(dbPath: string): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_submissions_request ON submissions(request_id);
     CREATE INDEX IF NOT EXISTS idx_payouts_pool ON payouts(pool_id);
     CREATE INDEX IF NOT EXISTS idx_reports_target ON reports(target_type, target_id);
+  `)
+
+  // Preserve previously validated reads while moving to one read per account and article.
+  db.exec(`
+    INSERT OR IGNORE INTO article_reads (article_id, user_id, read_at, weight)
+    SELECT article_id, user_id, MIN(started_at), MAX(weight)
+    FROM read_sessions
+    WHERE valid = 1
+    GROUP BY article_id, user_id
   `)
 
   // Add columns for existing local SQLite databases created before monetization.

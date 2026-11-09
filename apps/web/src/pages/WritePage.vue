@@ -14,9 +14,6 @@ const auth = useAuthStore()
 const title = ref('')
 const body = ref('')
 const tags = ref('')
-const quizQuestion = ref('')
-const quizOptions = ref(['', '', ''])
-const quizCorrectIndex = ref(0)
 const accessType = ref<'free' | 'subscription' | 'one_time'>('free')
 const priceNim = ref('')
 const showPreview = ref(false)
@@ -42,11 +39,6 @@ onMounted(async () => {
       title.value = article.title
       body.value = article.body
       tags.value = article.tags.join(', ')
-      if (article.quizJson) {
-        quizQuestion.value = article.quizJson.question
-        quizOptions.value = [...article.quizJson.options]
-        quizCorrectIndex.value = article.quizJson.correctIndex
-      }
       accessType.value = article.accessType || 'free'
       priceNim.value = article.priceLuna ? String(article.priceLuna / 100_000) : ''
       await nextTick()
@@ -252,26 +244,12 @@ function nodeToMarkdown(node: Node): string {
   return children
 }
 
-function buildQuizJson() {
-  if (!quizQuestion.value.trim() || quizOptions.value.some(o => !o.trim())) return null
-  return {
-    question: quizQuestion.value.trim(),
-    options: quizOptions.value.map(o => o.trim()) as [string, string, string],
-    correctIndex: quizCorrectIndex.value,
-  }
-}
-
 async function save(status: 'draft' | 'published') {
   if (!title.value.trim() || !body.value.trim()) {
     toast.value = { show: true, message: 'Title and body are required', type: 'error' }
     return
   }
 
-  const quiz = buildQuizJson()
-  if (status === 'published' && !quiz) {
-    toast.value = { show: true, message: 'Published articles need a quiz question', type: 'error' }
-    return
-  }
   if (accessType.value === 'one_time' && (!Number.isFinite(Number(priceNim.value)) || Number(priceNim.value) < 0.01)) {
     toast.value = { show: true, message: 'Set an individual price of at least 0.01 NIM', type: 'error' }
     return
@@ -283,7 +261,6 @@ async function save(status: 'draft' | 'published') {
       title: title.value.trim(),
       body: body.value.trim(),
       tags: tags.value.split(',').map(t => t.trim()).filter(Boolean),
-      quizJson: quiz,
       status,
       accessType: accessType.value,
       priceLuna: accessType.value === 'one_time' ? Math.round(Number(priceNim.value) * 100_000) : 0,
@@ -401,28 +378,6 @@ async function save(status: 'draft' | 'published') {
             <input v-model="priceNim" type="number" min="0.01" step="0.01" class="input mt-1 text-[14px]" placeholder="0.50" />
           </label>
         </section>
-
-        <!-- Quiz builder -->
-        <div class="mb-6 rounded-3xl border border-gray-100 bg-gradient-to-br from-white to-gray-50 p-5 shadow-sm">
-          <div class="flex items-center gap-2 mb-4">
-            <svg class="w-5 h-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            <div><h3 class="font-bold text-[15px] text-[#1a1a1a]">{{ t('write.quiz') }}</h3><p class="mt-0.5 text-[12px] text-gray-400">Give readers a memorable takeaway.</p></div>
-          </div>
-          <input v-model="quizQuestion" class="input text-[14px] mb-3" placeholder="Question" />
-          <div v-for="(_, idx) in quizOptions" :key="idx" class="flex items-center gap-3 mb-2">
-            <button
-              @click="quizCorrectIndex = idx"
-              class="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors"
-              :class="quizCorrectIndex === idx
-                ? 'border-[#1a1a1a] dark:border-white bg-[#1a1a1a] dark:bg-white'
-                : 'border-gray-300 dark:border-gray-600'"
-            >
-              <div v-if="quizCorrectIndex === idx" class="w-1.5 h-1.5 rounded-full bg-white dark:bg-[#1a1a1a]" />
-            </button>
-            <input v-model="quizOptions[idx]" class="input flex-1 text-[14px]" :placeholder="`Option ${idx + 1}`" />
-          </div>
-          <p class="text-[12px] text-gray-400 dark:text-gray-500 mt-2">Select the correct answer</p>
-        </div>
 
         <div class="flex gap-3">
           <button @click="save('draft')" class="btn-secondary flex-1 text-[14px]" :disabled="saving">

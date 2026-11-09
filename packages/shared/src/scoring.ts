@@ -70,12 +70,8 @@ export function getReputationWeight(validReadCount: number, tipsSentCount: numbe
   return READ_VALIDATION.NEW_WALLET_WEIGHT
 }
 
-export function calculateArticleScore(
-  validReads: { weight: number }[],
-  quizPassRate: number,
-): number {
-  const readScore = validReads.reduce((sum, r) => sum + r.weight, 0)
-  return readScore * (1 + quizPassRate)
+export function calculateArticleScore(validReads: { weight: number }[], _legacyQuizPassRate?: number): number {
+  return validReads.reduce((sum, read) => sum + read.weight, 0)
 }
 
 export function distributePool(

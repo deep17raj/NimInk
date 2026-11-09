@@ -172,9 +172,6 @@ articleRoutes.post('/', requireAuth, async (c) => {
     return c.json({ error: 'Invalid article access option', code: 'INVALID_ACCESS_TYPE' }, 400)
   }
 
-  if (articleStatus === 'published' && !quizJson) {
-    return c.json({ error: 'Published articles require a quiz question', code: 'QUIZ_REQUIRED' }, 400)
-  }
   const mongo = getMongoDb()
   if (mongo) {
     const now = new Date()
@@ -240,9 +237,6 @@ articleRoutes.put('/:id', requireAuth, async (c) => {
     if (newAccessType === 'one_time' && (!Number.isSafeInteger(newPriceLuna) || newPriceLuna < 1_000)) {
       return c.json({ error: 'Set an individual price of at least 0.01 NIM', code: 'INVALID_PRICE' }, 400)
     }
-    if (newStatus === 'published' && !quizJson && !article.quizJson) {
-      return c.json({ error: 'Published articles require a quiz question', code: 'QUIZ_REQUIRED' }, 400)
-    }
     const user = await mongo.collection<any>('users').findOne({ id: auth.userId })
     if (newStatus === 'published' && newAccessType === 'subscription' && !(user?.subscriptionPriceLuna > 0)) {
       return c.json({ error: 'Set your author subscription price before publishing subscriber-only articles', code: 'SUBSCRIPTION_PRICE_REQUIRED' }, 400)
@@ -278,9 +272,6 @@ articleRoutes.put('/:id', requireAuth, async (c) => {
     return c.json({ error: 'Set an individual price of at least 0.01 NIM', code: 'INVALID_PRICE' }, 400)
   }
 
-  if (newStatus === 'published' && !quizJson && !existing.quiz_json) {
-    return c.json({ error: 'Published articles require a quiz question', code: 'QUIZ_REQUIRED' }, 400)
-  }
   if (newStatus === 'published' && newAccessType === 'subscription') {
     const user = db.prepare('SELECT subscription_price_luna FROM users WHERE id = ?').get(auth.userId) as any
     if (!(user?.subscription_price_luna > 0)) {

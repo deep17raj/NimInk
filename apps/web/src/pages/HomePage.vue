@@ -102,12 +102,12 @@ watch(activeTab, () => {
       </div>
 
       <!-- Category tabs -->
-      <div class="flex gap-6 mb-6 overflow-x-auto pb-2 -mx-5 px-5 scrollbar-hide border-b border-gray-100 dark:border-[#2a2a2a]">
+      <div class="grid grid-cols-3 gap-2 mb-6 border-b border-gray-100 dark:border-[#2a2a2a]">
         <button
           v-for="tab in tabs"
           :key="tab.key"
           @click="activeTab = tab.key"
-          class="shrink-0 pb-3 text-[15px] font-medium whitespace-nowrap transition-colors relative"
+          class="relative w-full min-w-0 pb-3 text-center text-[14px] font-medium whitespace-nowrap transition-colors"
           :class="activeTab === tab.key
             ? 'text-gray-900 dark:text-white'
             : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'"
