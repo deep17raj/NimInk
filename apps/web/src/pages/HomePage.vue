@@ -19,7 +19,6 @@ const tabs = [
   { key: 'latest', label: () => t('feed.latest') },
   { key: 'popular', label: () => t('feed.popular') },
   { key: 'top_tipped', label: () => t('feed.topTipped') },
-  { key: 'requested', label: () => t('feed.requested') },
 ]
 
 const filteredArticles = computed(() => {

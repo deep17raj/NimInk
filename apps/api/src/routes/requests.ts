@@ -302,7 +302,15 @@ requestRoutes.post('/:id/pay', requireAuth, async (c) => {
       const demoTx = db.prepare("SELECT * FROM demo_transactions WHERE tx_hash = ? AND status = 'confirmed'").get(txHash) as any
       verified = !!demoTx && demoTx.from_address === auth.address && demoTx.to_address === winner.address && demoTx.value_luna === request.budgetLuna
     } else {
-      verified = await verifyNimiqPayment(txHash, auth.address, winner.address, request.budgetLuna)
+      const verification = await verifyNimiqPayment(txHash, auth.address, winner.address, request.budgetLuna)
+      if (verification.status === 'pending') return c.json({ status: 'pending', reason: verification.reason }, 202)
+      if (verification.status === 'unavailable') {
+        return c.json({ error: 'Nimiq is temporarily unable to confirm this payment', code: 'PAYMENT_PROVIDER_UNAVAILABLE' }, 503)
+      }
+      if (verification.status !== 'confirmed') {
+        return c.json({ error: 'Payment failed verification', code: 'VERIFICATION_FAILED', reason: verification.reason }, 400)
+      }
+      verified = true
     }
     if (!verified) return c.json({ error: 'Payment could not be verified on Nimiq', code: 'VERIFICATION_FAILED' }, 400)
     const result = await requests.updateOne({ id: requestId, requesterId: auth.userId, status: 'awarded', txHash: null }, {
@@ -341,7 +349,15 @@ requestRoutes.post('/:id/pay', requireAuth, async (c) => {
     if (demoTx.from_address !== auth.address) return c.json({ error: 'Payment sender mismatch', code: 'VERIFICATION_FAILED' }, 400)
     paymentVerified = true
   } else if (!auth.address.startsWith('NQ00 DEMO ')) {
-    paymentVerified = await verifyNimiqPayment(txHash, auth.address, winner.address, request.budget_luna)
+    const verification = await verifyNimiqPayment(txHash, auth.address, winner.address, request.budget_luna)
+    if (verification.status === 'pending') return c.json({ status: 'pending', reason: verification.reason }, 202)
+    if (verification.status === 'unavailable') {
+      return c.json({ error: 'Nimiq is temporarily unable to confirm this payment', code: 'PAYMENT_PROVIDER_UNAVAILABLE' }, 503)
+    }
+    if (verification.status !== 'confirmed') {
+      return c.json({ error: 'Payment failed verification', code: 'VERIFICATION_FAILED', reason: verification.reason }, 400)
+    }
+    paymentVerified = true
   }
   if (!paymentVerified) return c.json({ error: 'Payment could not be verified on Nimiq', code: 'VERIFICATION_FAILED' }, 400)
 

@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { api } from '@/composables/useApi'
+import { verifyPaymentUntilSettled } from '@/composables/usePaymentVerification'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import { formatNim, TIP_PRESETS_NIM, nimToLuna } from '@nimink/shared'
 import { t } from '@/i18n'
@@ -154,7 +155,11 @@ async function confirmPremiumPurchase() {
       try { localStorage.setItem(pendingKey, JSON.stringify({ txHash })) } catch {}
     }
 
-    await api.post(`/api/monetization/articles/${article.value.id}/unlock`, { txHash })
+    await verifyPaymentUntilSettled(() => api.post<{
+      status?: string
+      accessGranted?: boolean
+      expiresAt?: string | null
+    }>(`/api/monetization/articles/${article.value.id}/unlock`, { txHash }))
     showPremiumConfirm.value = false
     const { article: updated } = await api.get<{ article: any }>(`/api/articles/${article.value.id}`)
     article.value = updated
@@ -238,12 +243,12 @@ async function confirmTip() {
       txHash = payment.txHash
       try { localStorage.setItem(pendingKey, JSON.stringify({ txHash, note: tipNote.value })) } catch {}
     }
-    await api.post('/api/tips', {
+    await verifyPaymentUntilSettled(() => api.post<{ tipId?: string; status: string }>('/api/tips', {
       articleId: article.value.id,
       amountLuna,
       note: pending?.txHash ? pending.note : tipNote.value,
       txHash,
-    })
+    }))
     recorded = true
     try { localStorage.removeItem(pendingKey) } catch {}
     try { localStorage.removeItem(savedPendingKey) } catch {}

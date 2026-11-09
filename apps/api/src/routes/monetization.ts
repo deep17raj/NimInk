@@ -76,8 +76,16 @@ monetizationRoutes.post('/articles/:articleId/unlock', requireAuth, async (c) =>
     return c.json({ error: 'Transaction already used', code: 'DUPLICATE_TX' }, 409)
   }
 
-  const verified = await verifyNimiqPayment(txHash, auth.address, author.address, amountLuna)
-  if (!verified) return c.json({ error: 'Payment could not be verified on Nimiq', code: 'VERIFICATION_FAILED' }, 400)
+  const verification = await verifyNimiqPayment(txHash, auth.address, author.address, amountLuna)
+  if (verification.status === 'pending') {
+    return c.json({ status: 'pending', reason: verification.reason }, 202)
+  }
+  if (verification.status === 'unavailable') {
+    return c.json({ error: 'Nimiq is temporarily unable to confirm this payment', code: 'PAYMENT_PROVIDER_UNAVAILABLE' }, 503)
+  }
+  if (verification.status !== 'confirmed') {
+    return c.json({ error: 'Payment failed verification', code: 'VERIFICATION_FAILED', reason: verification.reason }, 400)
+  }
 
   let expiresAt: Date | null = null
   if (purpose === 'subscription') {

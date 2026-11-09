@@ -63,7 +63,7 @@ The repository includes `render.yaml` for a single Render web service. Render bu
 2. In the service environment, add `MONGODB_URI` with your Atlas connection string. The Blueprint generates `JWT_SECRET` and sets `MONGODB_DATABASE` to `nimink`.
 3. In MongoDB Atlas, allow connections from your Render service's outbound IP addresses.
 4. After the first deploy, copy the Render service URL into `APP_ORIGIN` (for example, `https://nimink.onrender.com`) and redeploy. Keep `VITE_WALLET_MODE=nimiq` so the production build enables Nimiq Pay sign-in.
-5. Set `NIMIQ_RPC_URL` to an RPC endpoint for the same network that Nimiq Pay uses. The public default is suitable for testing; use a reliable managed or self-hosted endpoint for production.
+5. Set `NIMIQ_RPC_URL` and `NIMIQ_NETWORK` to the same network selected in Nimiq Pay (`mainnet` or `testnet`). The app blocks payment approval when they differ. The public default is suitable for testing; use a reliable managed or self-hosted endpoint for production.
 
 The health endpoint is `/api/health`. It should report `"database":"mongodb"` after the service connects to Atlas.
 
@@ -80,7 +80,9 @@ See `.env.example` for all options. Key variables:
 | `APP_ORIGIN` | — | Public HTTPS origin used in wallet sign-in challenges |
 | `ADMIN_ADDRESSES` | — | Comma-separated Nimiq admin allowlist |
 | `PORT` | `3001` | API server port |
-| `NIMIQ_RPC_URL` | — | Nimiq node RPC (real mode) |
+| `NIMIQ_RPC_URL` | `https://rpc.nimiqwatch.com` | Nimiq node RPC; must use the same network as Nimiq Pay |
+| `NIMIQ_NETWORK` | `mainnet` | `mainnet` or `testnet`; checked against Nimiq Pay before sending |
+| `NIMIQ_MIN_CONFIRMATIONS` | `2` | Confirmations required before a payment is recorded |
 | `POOL_SIZE_LUNA` | `20000000` | Weekly pool size (200 NIM) |
 
 ## License

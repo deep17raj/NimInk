@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { api } from '@/composables/useApi'
+import { verifyPaymentUntilSettled } from '@/composables/usePaymentVerification'
 import { formatNim, nimToLuna } from '@nimink/shared'
 import { t } from '@/i18n'
 import TopBar from '@/components/TopBar.vue'
@@ -20,6 +21,7 @@ const request = ref<any>(null)
 const submissions = ref<any[]>([])
 const reputation = ref<any>(null)
 const loading = ref(true)
+const loadError = ref('')
 const showSubmit = ref(false)
 const userArticles = ref<any[]>([])
 const selectedArticleId = ref('')
@@ -29,20 +31,42 @@ const toast = ref({ show: false, message: '', type: 'success' as 'success' | 'er
 
 const isRequester = computed(() => request.value?.requesterId === auth.user?.id)
 
-onMounted(async () => {
+let requestLoadVersion = 0
+
+async function loadRequest() {
+  const version = ++requestLoadVersion
+  const requestId = String(route.params.id || '')
+  loading.value = true
+  loadError.value = ''
+  request.value = null
+  submissions.value = []
+  reputation.value = null
+
   try {
-    const data = await api.get<{ request: any; submissions: any[] }>(`/api/requests/${route.params.id}`)
+    const data = await api.get<{ request: any; submissions: any[] }>(`/api/requests/${requestId}`)
+    if (!data.request) throw { status: 404, error: 'Request not found' }
+    if (version !== requestLoadVersion) return
     request.value = data.request
     submissions.value = data.submissions
 
-    const rep = await api.get<any>(`/api/requests/${route.params.id}/reputation?requesterId=${data.request.requesterId}`)
-    reputation.value = rep
-  } catch (e) {
-    console.error(e)
+    try {
+      const rep = await api.get<any>(`/api/requests/${requestId}/reputation?requesterId=${data.request.requesterId}`)
+      if (version === requestLoadVersion) reputation.value = rep
+    } catch {
+      if (version === requestLoadVersion) reputation.value = null
+    }
+  } catch (e: any) {
+    if (version === requestLoadVersion) {
+      loadError.value = e.status === 404
+        ? 'This request is unavailable or may have been removed.'
+        : e.error || 'Could not load this request. Check your connection and try again.'
+    }
   } finally {
-    loading.value = false
+    if (version === requestLoadVersion) loading.value = false
   }
-})
+}
+
+watch(() => route.params.id, () => { void loadRequest() }, { immediate: true })
 
 async function openSubmitDraft() {
   try {
@@ -97,7 +121,7 @@ async function payWinner() {
       txHash = payment.txHash
       try { localStorage.setItem(pendingKey, JSON.stringify({ txHash })) } catch {}
     }
-    await api.post(`/api/requests/${request.value.id}/pay`, { txHash })
+    await verifyPaymentUntilSettled(() => api.post<{ ok?: boolean; status?: string }>(`/api/requests/${request.value.id}/pay`, { txHash }))
     recorded = true
     try { localStorage.removeItem(pendingKey) } catch {}
 
@@ -131,6 +155,15 @@ async function payWinner() {
       <!-- Loading -->
       <div v-if="loading" class="space-y-3 pt-2">
         <div class="skeleton h-6 w-3/4 mb-2" /><div class="skeleton h-4 w-full mb-2" /><div class="skeleton h-4 w-2/3" />
+      </div>
+
+      <div v-else-if="loadError" class="mt-6 rounded-2xl border border-gray-200 bg-white px-5 py-8 text-center dark:border-[#2b2b2b] dark:bg-[#151515]">
+        <p class="text-[15px] font-semibold text-[#1a1a1a] dark:text-white">Request details unavailable</p>
+        <p class="mt-2 text-[13px] leading-relaxed text-gray-500 dark:text-gray-400">{{ loadError }}</p>
+        <div class="mt-5 flex justify-center gap-3">
+          <button @click="loadRequest" class="btn-secondary px-4 py-2 text-[13px]">Try again</button>
+          <button @click="router.push('/requests')" class="btn-primary px-4 py-2 text-[13px]">Back to requests</button>
+        </div>
       </div>
 
       <div v-else-if="request" class="pt-2">

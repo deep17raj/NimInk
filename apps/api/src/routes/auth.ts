@@ -42,7 +42,7 @@ authRoutes.post('/verify', async (c) => {
     return c.json({ error: 'Missing login proof', code: 'INVALID_INPUT' }, 400)
   }
 
-  const challenge = await mongo.collection('authChallenges').findOne({ nonce, expiresAt: { $gt: new Date() } })
+  const challenge = await mongo.collection<any>('authChallenges').findOneAndDelete({ nonce, expiresAt: { $gt: new Date() } })
   if (!challenge) return c.json({ error: 'Login challenge expired or already used', code: 'INVALID_NONCE' }, 400)
 
   let address: string
@@ -50,15 +50,23 @@ authRoutes.post('/verify', async (c) => {
     const key = PublicKey.fromHex(publicKey)
     const sig = Signature.fromHex(signature)
     const prefixedMessage = `\x16Nimiq Signed Message:\n${challenge.message.length}${challenge.message}`
-    const digest = Hash.computeSha256(BufferUtils.fromUtf8(prefixedMessage))
-    if (!key.verify(sig, digest)) return c.json({ error: 'Wallet signature is invalid', code: 'INVALID_SIGNATURE' }, 401)
+    const rawBytes = BufferUtils.fromUtf8(challenge.message)
+    const prefixedBytes = BufferUtils.fromUtf8(prefixedMessage)
+    const candidates = [
+      { format: 'nimiq-prefixed-sha256', bytes: Hash.computeSha256(prefixedBytes) },
+      { format: 'sha256', bytes: Hash.computeSha256(rawBytes) },
+      { format: 'raw', bytes: rawBytes },
+      { format: 'nimiq-prefixed', bytes: prefixedBytes },
+    ]
+    const verifiedFormat = candidates.find(({ bytes }) => {
+      try { return key.verify(sig, bytes) } catch { return false }
+    })?.format
+    if (!verifiedFormat) return c.json({ error: 'Wallet signature is invalid', code: 'INVALID_SIGNATURE' }, 401)
+    console.info(`[auth] Nimiq sign-in signature verified (${verifiedFormat})`)
     address = key.toAddress().toUserFriendlyAddress()
   } catch {
     return c.json({ error: 'Wallet signature is invalid', code: 'INVALID_SIGNATURE' }, 401)
   }
-
-  const consumed = await mongo.collection('authChallenges').findOneAndDelete({ _id: challenge._id, expiresAt: { $gt: new Date() } })
-  if (!consumed) return c.json({ error: 'Login challenge already used', code: 'INVALID_NONCE' }, 400)
 
   const users = mongo.collection<any>('users')
   const safeName = typeof displayName === 'string' ? displayName.trim().slice(0, 40) : ''

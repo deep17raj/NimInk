@@ -29,6 +29,7 @@ const routes = [
   },
   {
     path: '/requests/:id',
+    name: 'request-detail',
     component: () => import('./pages/RequestDetailPage.vue'),
     meta: { hideNav: true },
   },

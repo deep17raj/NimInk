@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { api, setAuthToken, getAuthToken } from '@/composables/useApi'
-import { init } from '@nimiq/mini-app-sdk'
+import { getNimiqProvider, resetNimiqProvider, toNimiqError } from '@/composables/useNimiq'
 
 interface User {
   id: string
@@ -17,7 +17,6 @@ export const useAuthStore = defineStore('auth', () => {
     (import.meta.env.VITE_WALLET_MODE as any) || 'demo'
   )
   const isDemo = computed(() => walletMode.value === 'demo')
-  let nimiqProvider: Awaited<ReturnType<typeof init>> | null = null
 
   async function connectDemo(address: string, displayName: string) {
     const { token, user: u } = await api.post<{ token: string; user: User }>('/api/auth/demo', {
@@ -30,9 +29,14 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function connectNimiq() {
-    nimiqProvider = await init({ timeout: 10_000 })
+    const nimiqProvider = await getNimiqProvider()
     const { nonce, message } = await api.post<{ nonce: string; message: string }>('/api/auth/nonce')
-    const proof = await nimiqProvider.sign(message)
+    let proof: { publicKey: string; signature: string }
+    try {
+      proof = await nimiqProvider.sign(message)
+    } catch (error) {
+      throw toNimiqError(error)
+    }
     const { token, user: signedInUser } = await api.post<{ token: string; user: User }>('/api/auth/verify', {
       nonce,
       publicKey: proof.publicKey,
@@ -44,8 +48,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function disconnect() {
-    nimiqProvider?.disconnect()
-    nimiqProvider = null
+    resetNimiqProvider()
     user.value = null
     setAuthToken('')
   }

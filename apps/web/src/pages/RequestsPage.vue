@@ -101,9 +101,6 @@ function formatDate(value: string) {
   return new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-function openRequest(request: any) {
-  router.push(`/requests/${request.id}`)
-}
 </script>
 
 <template>
@@ -120,18 +117,6 @@ function openRequest(request: any) {
     </div>
 
     <div class="px-5 pt-5">
-      <div class="mb-5 rounded-2xl border border-[#e5e9f2] bg-gradient-to-br from-white via-white to-blue-50/80 p-4 dark:border-[#252b37] dark:from-[#17191e] dark:to-[#151e2a]">
-        <div class="flex items-start gap-3">
-          <div class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#edf5ff] text-[#2477bd] dark:bg-[#1a2c3d] dark:text-blue-300">
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></svg>
-          </div>
-          <div>
-            <p class="text-[14px] font-semibold text-[#1a1a1a] dark:text-white">Requests, clearly organized</p>
-            <p class="mt-1 text-[12px] leading-relaxed text-gray-500 dark:text-gray-400">Browse topics requested by other writers, or check the progress of requests you posted.</p>
-          </div>
-        </div>
-      </div>
-
       <div class="mb-5 grid grid-cols-2 rounded-2xl border border-gray-200 bg-white p-1 shadow-sm dark:border-[#2b2b2b] dark:bg-[#151515]">
         <button
           type="button"
@@ -198,11 +183,10 @@ function openRequest(request: any) {
       </div>
 
       <div v-else class="space-y-3 pb-8">
-        <button
+        <RouterLink
           v-for="req in visibleRequests"
           :key="req.id"
-          type="button"
-          @click="openRequest(req)"
+          :to="{ name: 'request-detail', params: { id: req.id } }"
           class="group block w-full rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-[0_4px_18px_rgba(31,35,72,0.035)] transition-all hover:-translate-y-0.5 hover:border-blue-100 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0582CA] dark:border-[#252525] dark:bg-[#151515] dark:hover:border-[#24405c]"
         >
           <div class="mb-3 flex items-center justify-between gap-3">
@@ -231,7 +215,7 @@ function openRequest(request: any) {
             <svg class="h-3.5 w-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" /></svg>
             {{ t('request.unpaid') }}
           </div>
-        </button>
+        </RouterLink>
       </div>
     </div>
   </div>

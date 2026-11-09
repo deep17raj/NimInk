@@ -2,11 +2,32 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api } from '@/composables/useApi'
 import { useAuthStore } from './auth'
-import { init } from '@nimiq/mini-app-sdk'
+import { getHostNetwork } from '@nimiq/mini-app-sdk'
+import { getNimiqProvider, toNimiqError } from '@/composables/useNimiq'
 
 export const useWalletStore = defineStore('wallet', () => {
   const balance = ref(0)
   const loading = ref(false)
+  let configuredNetworkPromise: Promise<string> | null = null
+
+  async function ensurePaymentNetwork() {
+    const hostNetwork = getHostNetwork()
+    if (hostNetwork !== 'mainnet' && hostNetwork !== 'testnet') return
+
+    if (!configuredNetworkPromise) {
+      configuredNetworkPromise = api.get<{ network: string }>('/api/health')
+        .then((result) => result.network)
+        .catch((error) => {
+          configuredNetworkPromise = null
+          throw error
+        })
+    }
+
+    const serverNetwork = await configuredNetworkPromise
+    if (serverNetwork !== hostNetwork) {
+      throw new Error(`Nimiq Pay is on ${hostNetwork}, while NimInk payments use ${serverNetwork}. Switch to the same network before paying. No payment was sent.`)
+    }
+  }
 
   async function fetchBalance() {
     const auth = useAuthStore()
@@ -15,7 +36,7 @@ export const useWalletStore = defineStore('wallet', () => {
     loading.value = true
     try {
       if (!auth.isDemo) {
-        const nimiq = await init({ timeout: 10_000 })
+        const nimiq = await getNimiqProvider()
         balance.value = await nimiq.getBalance(auth.user.address)
         return
       }
@@ -44,17 +65,28 @@ export const useWalletStore = defineStore('wallet', () => {
       return { txHash: result.txHash }
     }
 
-    const nimiq = await init({ timeout: 10_000 })
-    const walletAccounts = await nimiq.listAccounts()
+    const nimiq = await getNimiqProvider()
+    await ensurePaymentNetwork()
+    let walletAccounts: string[]
+    try {
+      walletAccounts = await nimiq.listAccounts()
+    } catch (error) {
+      throw toNimiqError(error)
+    }
     const normalizeAddress = (address: string) => address.replace(/\s/g, '').toUpperCase()
     const authenticatedAddress = auth.user?.address
     if (!authenticatedAddress || !walletAccounts.some((address) => normalizeAddress(address) === normalizeAddress(authenticatedAddress))) {
       throw new Error('The account you used to sign in to NimInk is not available to this mini app. Select/share that account in Nimiq Pay, then sign in again and retry. No payment was sent.')
     }
-    const txHash = data
-      ? await nimiq.sendBasicTransactionWithData({ recipient, value: valueLuna, data })
-      : await nimiq.sendBasicTransaction({ recipient, value: valueLuna })
-    await fetchBalance()
+    let txHash: string
+    try {
+      txHash = data
+        ? await nimiq.sendBasicTransactionWithData({ recipient, value: valueLuna, data })
+        : await nimiq.sendBasicTransaction({ recipient, value: valueLuna })
+    } catch (error) {
+      throw toNimiqError(error)
+    }
+    void fetchBalance()
     return { txHash }
   }
 
@@ -71,9 +103,15 @@ export const useWalletStore = defineStore('wallet', () => {
       return { txHash: result.txHash }
     }
 
-    const nimiq = await init({ timeout: 10_000 })
-    const txHash = await nimiq.sendNewStakerTransaction({ delegation: validatorAddress, value: valueLuna })
-    await fetchBalance()
+    const nimiq = await getNimiqProvider()
+    await ensurePaymentNetwork()
+    let txHash: string
+    try {
+      txHash = await nimiq.sendNewStakerTransaction({ delegation: validatorAddress, value: valueLuna })
+    } catch (error) {
+      throw toNimiqError(error)
+    }
+    void fetchBalance()
     return { txHash }
   }
 

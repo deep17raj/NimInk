@@ -18,3 +18,7 @@ services:
         generateValue: true
       - key: NIMIQ_RPC_URL
         value: https://rpc.nimiqwatch.com
+      - key: NIMIQ_NETWORK
+        value: mainnet
+      - key: NIMIQ_MIN_CONFIRMATIONS
+        value: "2"

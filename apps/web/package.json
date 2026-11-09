@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@nimink/shared": "*",
-    "@nimiq/mini-app-sdk": "^0.2.1",
+    "@nimiq/mini-app-sdk": "^0.2.5",
     "dompurify": "^3.2.0",
     "markdown-it": "^14.1.0",
     "pinia": "^2.2.0",

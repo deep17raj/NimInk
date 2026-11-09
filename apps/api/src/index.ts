@@ -76,6 +76,7 @@ app.route('/api/notifications', notificationRoutes)
 app.get('/api/health', (c) => c.json({
   ok: true,
   mode: process.env.VITE_WALLET_MODE || 'demo',
+  network: process.env.NIMIQ_NETWORK === 'testnet' ? 'testnet' : 'mainnet',
   database: getMongoDb() ? 'mongodb' : 'sqlite',
 }))
 

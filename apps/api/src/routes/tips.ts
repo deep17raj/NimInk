@@ -37,7 +37,15 @@ tipRoutes.post('/', requireAuth, async (c) => {
       const demoTx = db.prepare("SELECT * FROM demo_transactions WHERE tx_hash = ? AND status = 'confirmed'").get(txHash) as any
       verified = !!demoTx && demoTx.from_address === auth.address && demoTx.to_address === author.address && demoTx.value_luna === amountLuna
     } else {
-      verified = await verifyNimiqPayment(txHash, auth.address, author.address, amountLuna)
+      const verification = await verifyNimiqPayment(txHash, auth.address, author.address, amountLuna)
+      if (verification.status === 'pending') return c.json({ status: 'pending', reason: verification.reason }, 202)
+      if (verification.status === 'unavailable') {
+        return c.json({ error: 'Nimiq is temporarily unable to confirm this payment', code: 'PAYMENT_PROVIDER_UNAVAILABLE' }, 503)
+      }
+      if (verification.status !== 'confirmed') {
+        return c.json({ error: 'Payment failed verification', code: 'VERIFICATION_FAILED', reason: verification.reason }, 400)
+      }
+      verified = true
     }
     if (!verified) return c.json({ error: 'Payment could not be verified on Nimiq', code: 'VERIFICATION_FAILED' }, 400)
 
@@ -104,8 +112,14 @@ tipRoutes.post('/', requireAuth, async (c) => {
     status = 'confirmed'
   }
   if (!demoTx && !auth.address.startsWith('NQ00 DEMO ')) {
-    const verified = await verifyNimiqPayment(txHash, auth.address, author.address, amountLuna)
-    if (!verified) return c.json({ error: 'Payment could not be verified on Nimiq', code: 'VERIFICATION_FAILED' }, 400)
+    const verification = await verifyNimiqPayment(txHash, auth.address, author.address, amountLuna)
+    if (verification.status === 'pending') return c.json({ status: 'pending', reason: verification.reason }, 202)
+    if (verification.status === 'unavailable') {
+      return c.json({ error: 'Nimiq is temporarily unable to confirm this payment', code: 'PAYMENT_PROVIDER_UNAVAILABLE' }, 503)
+    }
+    if (verification.status !== 'confirmed') {
+      return c.json({ error: 'Payment failed verification', code: 'VERIFICATION_FAILED', reason: verification.reason }, 400)
+    }
     status = 'confirmed'
   }
 
