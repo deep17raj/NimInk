@@ -11,11 +11,12 @@ RUN npm ci
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build --workspace=apps/web
+RUN npm run build --workspace=packages/shared && npm run build --workspace=apps/web
 
 FROM base AS runtime
 COPY --from=deps /app/node_modules ./node_modules
 COPY packages/ packages/
+COPY --from=build /app/packages/shared/dist packages/shared/dist
 COPY apps/api/ apps/api/
 COPY --from=build /app/apps/web/dist apps/web/dist
 COPY package.json .
