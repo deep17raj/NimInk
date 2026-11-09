@@ -9,6 +9,8 @@ COPY apps/web/package.json apps/web/
 RUN npm ci
 
 FROM base AS build
+ARG VITE_WALLET_MODE=nimiq
+ENV VITE_WALLET_MODE=${VITE_WALLET_MODE}
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build --workspace=packages/shared && npm run build --workspace=apps/web
@@ -22,6 +24,7 @@ COPY --from=build /app/apps/web/dist apps/web/dist
 COPY package.json .
 
 ENV NODE_ENV=production
+ENV VITE_WALLET_MODE=nimiq
 ENV PORT=3001
 EXPOSE 3001
 

@@ -31,8 +31,9 @@ async function openDemoConnect() {
     const { accounts } = await api.get<{ accounts: any[] }>('/api/demo/accounts')
     demoAccounts.value = accounts
     showAccountPicker.value = true
-  } catch (e) {
+  } catch (e: any) {
     console.error(e)
+    connectError.value = e?.error || 'Could not connect to the NimInk server. Please try again.'
   } finally {
     loading.value = false
   }
