@@ -16,6 +16,7 @@ export function validateCheckpoints(
   checkpoints: number[],
   checkpointTimes: number[],
   wordCount: number,
+  serverElapsedSeconds?: number,
 ): { valid: boolean; reason: string | null } {
   if (checkpoints.length !== checkpointTimes.length) {
     return { valid: false, reason: 'checkpoint_count_mismatch' }
@@ -26,21 +27,24 @@ export function validateCheckpoints(
   }
 
   const expectedCheckpoints = [25, 50, 75, 100]
+  if (!checkpoints.includes(100)) {
+    return { valid: false, reason: 'incomplete_read' }
+  }
+  if (checkpoints.length !== expectedCheckpoints.length) {
+    return { valid: false, reason: 'incomplete_checkpoints' }
+  }
+
   for (let i = 0; i < checkpoints.length; i++) {
     if (!expectedCheckpoints.includes(checkpoints[i])) {
       return { valid: false, reason: 'invalid_checkpoint_value' }
     }
-    if (i > 0 && checkpoints[i] <= checkpoints[i - 1]) {
+    if (checkpoints[i] !== expectedCheckpoints[i]) {
       return { valid: false, reason: 'checkpoints_out_of_order' }
     }
   }
 
-  if (!checkpoints.includes(100)) {
-    return { valid: false, reason: 'incomplete_read' }
-  }
-
   const totalTimeMs = checkpointTimes[checkpointTimes.length - 1] - checkpointTimes[0]
-  const totalTimeSec = totalTimeMs / 1000
+  const totalTimeSec = serverElapsedSeconds ?? totalTimeMs / 1000
   const minTime = minimumReadTimeSeconds(wordCount)
 
   if (totalTimeSec < minTime) {

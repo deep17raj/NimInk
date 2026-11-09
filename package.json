@@ -16,6 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "seed": "npm run seed --workspace=apps/api",
+    "seed:samples": "npm run seed:samples --workspace=apps/api",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },

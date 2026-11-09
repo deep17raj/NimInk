@@ -21,7 +21,6 @@ const loading = ref(true)
 const error = ref('')
 const readProgress = ref(0)
 const readSessionId = ref('')
-const readStarted = ref(false)
 const quizVisible = ref(false)
 const quizAnswer = ref<number | null>(null)
 const quizResult = ref<'pass' | 'fail' | null>(null)
@@ -63,10 +62,26 @@ const timeAgo = computed(() => {
   return new Date(article.value.createdAt).toLocaleDateString()
 })
 
-let checkpointsSent = new Set<number>()
 let scrollObserver: (() => void) | null = null
+let readTimer: ReturnType<typeof setTimeout> | undefined
+let finishingRead = false
+let pageMounted = false
+
+function getReadDeviceId() {
+  const key = 'nimink_read_device_id'
+  try {
+    const existing = localStorage.getItem(key)
+    if (existing) return existing
+    const id = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    localStorage.setItem(key, id)
+    return id
+  } catch {
+    return window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  }
+}
 
 onMounted(async () => {
+  pageMounted = true
   try {
     const { article: a } = await api.get<{ article: any }>(`/api/articles/${route.params.id}`)
     article.value = a
@@ -80,20 +95,42 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  pageMounted = false
   if (scrollObserver) scrollObserver()
+  if (readTimer) clearTimeout(readTimer)
 })
 
 async function startReadSession() {
   if (isOwnArticle.value || !auth.isConnected || article.value?.locked) return
   try {
-    const { sessionId } = await api.post<{ sessionId: string }>('/api/reads/start', {
+    const { sessionId, minimumReadSeconds } = await api.post<{ sessionId: string; minimumReadSeconds: number }>('/api/reads/start', {
       articleId: article.value.id,
-      deviceId: '',
+      deviceId: getReadDeviceId(),
     })
     readSessionId.value = sessionId
-    readStarted.value = true
+    readTimer = setTimeout(() => { void finishReadSession() }, minimumReadSeconds * 1000)
+    window.dispatchEvent(new Event('scroll'))
   } catch (e: any) {
-    if (e.code === 'ALREADY_READ') verifiedRead.value = true
+    if (e.code === 'ALREADY_READ' || e.code === 'DEVICE_DUPLICATE') verifiedRead.value = true
+  }
+}
+
+async function finishReadSession() {
+  if (!readSessionId.value || verifiedRead.value || finishingRead) return
+  finishingRead = true
+  try {
+    const { valid } = await api.post<{ valid: boolean }>('/api/reads/finish', {
+      sessionId: readSessionId.value,
+    })
+    if (valid) {
+      verifiedRead.value = true
+      if (article.value) article.value.verifiedReadCount = Number(article.value.verifiedReadCount || 0) + 1
+    }
+  } catch {
+    // The session can be retried if the network briefly fails.
+    if (pageMounted) readTimer = setTimeout(() => { void finishReadSession() }, 3000)
+  } finally {
+    finishingRead = false
   }
 }
 
@@ -141,23 +178,12 @@ function setupScrollTracking() {
   const handler = () => {
     const scrollable = document.documentElement
     const scrollHeight = scrollable.scrollHeight - scrollable.clientHeight
-    if (scrollHeight <= 0) return
-    const progress = Math.min(100, Math.round((scrollable.scrollTop / scrollHeight) * 100))
+    const progress = scrollHeight <= 0
+      ? 100
+      : Math.min(100, Math.round((scrollable.scrollTop / scrollHeight) * 100))
     readProgress.value = progress
 
-    const checkpoints = [25, 50, 75, 100]
-    for (const cp of checkpoints) {
-      if (progress >= cp && !checkpointsSent.has(cp) && readSessionId.value) {
-        checkpointsSent.add(cp)
-        api.post('/api/reads/checkpoint', {
-          sessionId: readSessionId.value,
-          checkpoint: cp,
-          timestamp: Date.now(),
-        })
-      }
-    }
-
-    if (progress >= 90 && article.value?.quizJson && !quizVisible.value && !verifiedRead.value) {
+    if (progress >= 90 && article.value?.quizJson && !quizVisible.value) {
       quizVisible.value = true
     }
   }
@@ -166,22 +192,9 @@ function setupScrollTracking() {
   scrollObserver = () => window.removeEventListener('scroll', handler)
 }
 
-async function submitQuiz() {
-  if (quizAnswer.value === null || !readSessionId.value) return
-  try {
-    const { valid } = await api.post<{ valid: boolean; reason?: string }>('/api/reads/finish', {
-      sessionId: readSessionId.value,
-      quizAnswer: quizAnswer.value,
-    })
-    if (valid) {
-      quizResult.value = 'pass'
-      verifiedRead.value = true
-    } else {
-      quizResult.value = 'fail'
-    }
-  } catch (e: any) {
-    quizResult.value = 'fail'
-  }
+function submitQuiz() {
+  if (quizAnswer.value === null || !article.value?.quizJson) return
+  quizResult.value = quizAnswer.value === article.value.quizJson.correctIndex ? 'pass' : 'fail'
 }
 
 function selectTipAmount(nim: number) {
@@ -375,7 +388,7 @@ async function submitReport() {
       </div>
 
       <!-- Quiz -->
-      <div v-if="quizVisible && article.quizJson && !verifiedRead" class="mt-10 rounded-2xl border border-gray-200 dark:border-[#333] p-5">
+      <div v-if="quizVisible && article.quizJson" class="mt-10 rounded-2xl border border-gray-200 dark:border-[#333] p-5">
         <h3 class="font-bold mb-3 text-[#1a1a1a] dark:text-white text-[15px]">{{ t('article.quiz.title') }}</h3>
         <p class="text-[14px] mb-4 text-gray-600 dark:text-gray-400">{{ article.quizJson.question }}</p>
         <div class="space-y-2">

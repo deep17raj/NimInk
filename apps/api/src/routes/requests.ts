@@ -37,6 +37,59 @@ requestRoutes.get('/', async (c) => {
   return c.json({ requests })
 })
 
+requestRoutes.get('/mine', requireAuth, async (c) => {
+  const auth = getAuth(c)
+  const limit = Math.max(1, Math.min(Number.parseInt(c.req.query('limit') || '', 10) || 50, 100))
+
+  const mongo = getMongoDb()
+  if (mongo) {
+    const rows = await mongo.collection<any>('requests')
+      .find({ requesterId: auth.userId })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .toArray()
+    const user = await mongo.collection<any>('users').findOne({ id: auth.userId })
+    return c.json({ requests: rows.map((row) => mapMongoRequest(row, user)) })
+  }
+
+  const rows = db.prepare(
+    `SELECT r.*, u.display_name as requester_name, u.address as requester_address
+     FROM requests r JOIN users u ON r.requester_id = u.id
+     WHERE r.requester_id = ?
+     ORDER BY r.created_at DESC LIMIT ?`
+  ).all(auth.userId, limit) as any[]
+
+  return c.json({ requests: rows.map(mapRequestRow) })
+})
+
+requestRoutes.get('/discover', requireAuth, async (c) => {
+  const auth = getAuth(c)
+  const limit = Math.max(1, Math.min(Number.parseInt(c.req.query('limit') || '', 10) || 50, 100))
+
+  const mongo = getMongoDb()
+  if (mongo) {
+    const rows = await mongo.collection<any>('requests')
+      .find({ requesterId: { $ne: auth.userId }, status: 'open' })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .toArray()
+    const users = await mongo.collection<any>('users')
+      .find({ id: { $in: rows.map((row) => row.requesterId) } })
+      .toArray()
+    const usersById = new Map(users.map((user) => [user.id, user]))
+    return c.json({ requests: rows.map((row) => mapMongoRequest(row, usersById.get(row.requesterId))) })
+  }
+
+  const rows = db.prepare(
+    `SELECT r.*, u.display_name as requester_name, u.address as requester_address
+     FROM requests r JOIN users u ON r.requester_id = u.id
+     WHERE r.requester_id != ? AND r.status = 'open'
+     ORDER BY r.created_at DESC LIMIT ?`
+  ).all(auth.userId, limit) as any[]
+
+  return c.json({ requests: rows.map(mapRequestRow) })
+})
+
 requestRoutes.get('/:id', async (c) => {
   const mongo = getMongoDb()
   if (mongo) {

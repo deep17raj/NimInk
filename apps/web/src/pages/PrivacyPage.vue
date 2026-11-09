@@ -15,8 +15,8 @@ import TopBar from '@/components/TopBar.vue'
       <h2>What {{ APP_NAME }} collects</h2>
       <ul>
         <li><strong>Wallet address</strong> — your public Nimiq address, used to identify your account and process payments.</li>
-        <li><strong>Device identifier hash</strong> — a one-way hash of the device ID provided by Nimiq Pay, used to prevent duplicate verified reads. We never store the raw device ID.</li>
-        <li><strong>Reading telemetry</strong> — scroll progress (25%, 50%, 75%, 100%) and timestamps during article reading. Used to validate read counts and protect popularity rankings from automated activity.</li>
+        <li><strong>Device identifier hash</strong> — a one-way hash of a random identifier stored in this browser, used to prevent duplicate verified reads. We never store the raw identifier.</li>
+        <li><strong>Reading telemetry</strong> — scroll progress (25%, 50%, 75%, 100%) and server-recorded timestamps during article reading. Used to validate read counts and protect popularity rankings from automated activity.</li>
         <li><strong>IP address hash</strong> — a one-way hash of your IP, used for rate limiting and fraud cluster detection. We never store the raw IP address.</li>
       </ul>
 

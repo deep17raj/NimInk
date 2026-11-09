@@ -8,6 +8,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "seed": "tsx src/db/seed.ts",
+    "seed:samples": "tsx src/db/seed-sample-articles.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
