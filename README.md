@@ -1,6 +1,6 @@
 # NimInk — Write. Earn. Stake.
 
-A mobile-first writing and earning Mini App for Nimiq Pay. Writers publish articles, earn NIM through tips, requested articles, and verified-read rewards, then stake their earnings in one tap.
+A mobile-first writing and earning Mini App for Nimiq Pay. Writers publish free or premium articles, earn NIM through tips, requested articles, optional reader subscriptions, or individual article sales, then stake their earnings in one tap. Read counts help readers discover popular articles and do not generate payments.
 
 Built for the **Nimiq Mini Apps Competition (Cycle III)**.
 
@@ -40,20 +40,32 @@ NimInk/
 
 The app ships in demo mode by default. Three pre-made accounts (Alice, Bob, Carol) each start with 1,000 demo NIM. A faucet button provides 500 more (3x/day).
 
-- **`/dev`** — Developer panel: fast-forward time, distribute pool, accrue staking rewards, simulate errors, reset data
-- **`/admin`** — Admin panel: reports queue, pool payouts, fraud flags
+- **`/dev`** — Developer panel: fast-forward time, accrue staking rewards, simulate errors, reset data
+- **`/admin`** — Admin panel: reports queue and fraud flags
 
 ## Switching from Demo to Real Mode
 
 1. Copy `.env.example` to `.env` and set `VITE_WALLET_MODE=nimiq`.
 2. Add your MongoDB Atlas URI and database name. Users, articles, requests, submissions, tips, and uploaded article images are stored in MongoDB so they are shared between users and API instances.
 3. Set a random `JWT_SECRET`, your deployed mini app URL in `APP_ORIGIN`, and the wallet addresses allowed to use admin APIs in `ADMIN_ADDRESSES`.
-4. Set `NIMIQ_RPC_URL` and optional RPC credentials. Wallet transfers use Nimiq Pay approvals; the API checks sender, recipient, amount, and transaction hash before marking tips or request awards paid.
-5. Deploy the API and frontend over HTTPS. Set `VITE_API_URL` to the deployed API origin if it is hosted separately.
+4. Set `NIMIQ_RPC_URL` and optional RPC credentials. Wallet transfers use Nimiq Pay approvals; the API checks sender, recipient, amount, and transaction hash before recording tips, request awards, subscriptions, or premium article purchases.
+5. Deploy the app over HTTPS. The API serves the built frontend and handles `/api` and `/uploads` on the same origin, so a separate frontend service is not needed.
 
 Sign-in uses the Nimiq Mini App SDK to request a one-time wallet signature. The API verifies the Nimiq signed-message proof, derives the account address from its public key, consumes the five-minute challenge once, and issues a short-lived JWT. Private keys never leave Nimiq Pay.
 
 `ADMIN_ADDRESSES` is a comma-separated list of Nimiq addresses. Without an allowlisted address, authenticated users cannot access moderation and payout administration endpoints. Demo reset and faucet endpoints are disabled in production.
+
+## Deploy to Render
+
+The repository includes `render.yaml` for a single Render web service. Render builds the shared package, API, and frontend, then starts only the API process. The API serves the compiled frontend, so the deployed app uses one HTTPS origin and needs no `VITE_API_URL` setting.
+
+1. Push the repository to GitHub and create a new **Blueprint** in Render using that repository.
+2. In the service environment, add `MONGODB_URI` with your Atlas connection string. The Blueprint generates `JWT_SECRET` and sets `MONGODB_DATABASE` to `nimink`.
+3. In MongoDB Atlas, allow connections from your Render service's outbound IP addresses.
+4. After the first deploy, copy the Render service URL into `APP_ORIGIN` (for example, `https://nimink.onrender.com`) and redeploy. Keep `VITE_WALLET_MODE=nimiq` so the production build enables Nimiq Pay sign-in.
+5. Set `NIMIQ_RPC_URL` to an RPC endpoint for the same network that Nimiq Pay uses. The public default is suitable for testing; use a reliable managed or self-hosted endpoint for production.
+
+The health endpoint is `/api/health`. It should report `"database":"mongodb"` after the service connects to Atlas.
 
 ## Environment Variables
 

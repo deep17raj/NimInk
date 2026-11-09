@@ -57,28 +57,6 @@ adminRoutes.post('/reports/:id/restore', async (c) => {
   return c.json({ ok: true })
 })
 
-adminRoutes.get('/pool/payouts', (c) => {
-  const rows = db.prepare(
-    `SELECT p.*, u.display_name as author_name, po.sponsor
-     FROM payouts p
-     JOIN users u ON p.author_id = u.id
-     JOIN pools po ON p.pool_id = po.id
-     ORDER BY p.payout_date DESC LIMIT 100`
-  ).all() as any[]
-
-  return c.json({
-    payouts: rows.map((p) => ({
-      id: p.id,
-      authorName: p.author_name,
-      amountLuna: p.amount_luna,
-      score: p.score,
-      status: p.status,
-      payoutDate: p.payout_date,
-      sponsor: p.sponsor,
-    })),
-  })
-})
-
 adminRoutes.get('/flags', (c) => {
   // Fraud cluster detection: same device or IP with many wallets
   const deviceClusters = db.prepare(

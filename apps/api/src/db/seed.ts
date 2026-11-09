@@ -180,8 +180,8 @@ A mobile-first web app in a wallet WebView should feel as natural as a native sc
     quiz: { question: 'What is the recommended minimum touch target size?', options: ['24 pixels', '32 pixels', '44 pixels'], correctIndex: 2 },
   },
   {
-    title: 'Preventing Fraud in Read-to-Earn Systems',
-    body: `Read-to-earn platforms face a fundamental challenge: verifying that a real person actually read and understood content. Every incentive to earn creates an incentive to game the system.
+    title: 'Keeping Article Popularity Rankings Useful',
+    body: `Read counts help readers discover stories that are getting attention, but a raw page-view counter is easy to manipulate. A bot can load pages in milliseconds, generating fake reads at scale. Even time-on-page can be faked by leaving a tab open.
 
 ## Why Cheap Signals Fail
 
@@ -189,24 +189,20 @@ A simple page-view counter is trivially gamed. A bot can load pages in milliseco
 
 ## Layered Verification
 
-The solution is layering multiple weak signals to create reasonable confidence. No single check is conclusive, but together they raise the cost of gaming significantly.
+Layering multiple weak signals gives reasonable confidence that a read count reflects genuine engagement. No single check is conclusive, but together they make manipulation harder.
 
-Identity layer: require a signed wallet session and device identifier. One verified read per wallet and device per article eliminates the simplest Sybil attacks.
+Identity layer: require a signed wallet session and device identifier. One counted read per wallet and device per article limits basic duplicate activity.
 
 Behavior layer: track scroll progress with server-issued session tokens. Require reading at least 40 percent of the expected time based on word count. Check that scroll checkpoints arrive in order and at plausible intervals.
 
 Comprehension layer: a short quiz about the article content. Authors write the questions, the server grades them. A read only counts if the quiz is passed. This is the strongest signal — it proves engagement.
 
-## Reputation Weights
-
-New wallets with no history should carry less weight. After a few verified reads or a tip, the weight increases. This makes fresh bot accounts less profitable without punishing genuine new users forever.
-
 ## Caps and Monitoring
 
 Set daily limits per wallet, device, IP, and article. Flag suspicious clusters (many wallets sharing a device or IP). Review flags manually — false positives happen, so do not auto-ban.
 
-No system is perfect. The goal is making fraud more expensive than honest participation.`,
-    tags: ['security', 'fraud', 'read-to-earn'],
+No system is perfect. The goal is keeping popularity rankings informative while protecting them from obvious manipulation.`,
+    tags: ['security', 'fraud', 'articles'],
     quiz: { question: 'Why should multiple verification signals be layered?', options: ['One signal is too expensive to compute', 'Any single signal from the client can be spoofed', 'Users prefer more verification steps'], correctIndex: 1 },
   },
 ]

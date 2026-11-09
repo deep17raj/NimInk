@@ -28,14 +28,14 @@ import TopBar from '@/components/TopBar.vue'
         <li><strong>Sexual content</strong> — explicit or suggestive material.</li>
         <li><strong>Scams and impersonation</strong> — misleading content, fake endorsements, or impersonating others.</li>
         <li><strong>Plagiarism</strong> — content copied from other sources without attribution.</li>
-        <li><strong>Spam</strong> — low-quality content created primarily to game the reward system.</li>
+        <li><strong>Spam</strong> — repetitive or misleading content that disrupts the community.</li>
       </ul>
 
       <h2>Reporting</h2>
       <p>Every article and request has a Report button. Reports are reviewed by moderators. Content that violates these guidelines will be hidden. Authors can appeal moderation decisions.</p>
 
-      <h2>Reward system integrity</h2>
-      <p>Attempting to game the verified-read reward system (automated reading, fake accounts, coordinated manipulation) is prohibited and will result in flagging and potential exclusion from rewards.</p>
+      <h2>Popularity rankings</h2>
+      <p>Automated reading, fake accounts, and coordinated activity intended to manipulate read counts or popularity rankings are prohibited.</p>
     </div>
     </div>
   </div>

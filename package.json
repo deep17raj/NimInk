@@ -11,6 +11,7 @@
     "dev": "npm run dev --workspace=apps/api & npm run dev --workspace=apps/web",
     "dev:api": "npm run dev --workspace=apps/api",
     "dev:web": "npm run dev --workspace=apps/web",
+    "start": "npm run start --workspace=apps/api",
     "build": "npm run build --workspace=packages/shared && npm run build --workspace=apps/api && npm run build --workspace=apps/web",
     "test": "vitest run",
     "test:watch": "vitest",

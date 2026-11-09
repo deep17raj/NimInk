@@ -18,10 +18,11 @@ import { requestRoutes } from './routes/requests.js'
 import { readRoutes } from './routes/reads.js'
 import { earningsRoutes } from './routes/earnings.js'
 import { stakingRoutes } from './routes/staking.js'
-import { poolRoutes } from './routes/pool.js'
+import { monetizationRoutes } from './routes/monetization.js'
 import { reportRoutes } from './routes/reports.js'
 import { adminRoutes } from './routes/admin.js'
 import { demoRoutes } from './routes/demo.js'
+import { notificationRoutes } from './routes/notifications.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') })
@@ -66,10 +67,11 @@ app.route('/api/requests', requestRoutes)
 app.route('/api/reads', readRoutes)
 app.route('/api/earnings', earningsRoutes)
 app.route('/api/staking', stakingRoutes)
-app.route('/api/pool', poolRoutes)
+app.route('/api/monetization', monetizationRoutes)
 app.route('/api/reports', reportRoutes)
 app.route('/api/admin', adminRoutes)
 app.route('/api/demo', demoRoutes)
+app.route('/api/notifications', notificationRoutes)
 
 app.get('/api/health', (c) => c.json({
   ok: true,

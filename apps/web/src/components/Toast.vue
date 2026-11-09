@@ -15,7 +15,7 @@ onMounted(() => {
       <div
         class="rounded-2xl px-4 py-3 text-[14px] font-medium shadow-lg flex items-center gap-2"
         :class="type === 'success'
-          ? 'bg-[#1a1a1a] text-white dark:bg-white dark:text-[#1a1a1a]'
+          ? 'bg-gradient-to-r from-[#1F2348] to-[#0582CA] text-white shadow-blue-950/20'
           : 'bg-red-600 text-white'"
       >
         <svg v-if="type === 'success'" class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>

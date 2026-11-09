@@ -41,9 +41,9 @@ function statusClass(status: string) {
 </script>
 
 <template>
-  <div class="min-h-[100dvh] pb-24">
+  <div class="min-h-[100dvh] bg-[#f7f8fc] pb-24 dark:bg-[#0c0c0c]">
     <!-- Header -->
-    <div class="sticky top-0 z-30 bg-white dark:bg-[#111]">
+    <div class="sticky top-0 z-30 border-b border-gray-100/80 bg-white/90 backdrop-blur-xl dark:border-[#252525] dark:bg-[#111]/90">
       <div class="flex items-center justify-between px-5 py-3">
         <h1 class="text-[18px] font-bold text-[#1a1a1a] dark:text-white">{{ t('nav.requests') }}</h1>
         <button @click="router.push('/requests/new')" class="btn-primary text-[13px] px-4 py-2">
@@ -73,7 +73,7 @@ function statusClass(status: string) {
           v-for="req in requests"
           :key="req.id"
           @click="router.push(`/requests/${req.id}`)"
-          class="py-4 border-b border-gray-100 dark:border-[#2a2a2a] last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#1a1a1a] -mx-5 px-5 transition-colors"
+          class="mb-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-[0_4px_18px_rgba(31,35,72,0.04)] cursor-pointer hover:-translate-y-0.5 hover:border-blue-100 hover:shadow-md dark:border-[#252525] dark:bg-[#151515] dark:hover:border-[#24405c] transition-all"
         >
           <div class="flex items-start justify-between mb-1.5">
             <h3 class="font-bold text-[15px] flex-1 mr-3 text-[#1a1a1a] dark:text-white">{{ req.topic }}</h3>

@@ -4,6 +4,7 @@ import { db } from '../index.js'
 import { requireAuth, getAuth } from '../middleware/auth.js'
 import { getMongoDb } from '../db/mongo.js'
 import { verifyNimiqPayment } from '../services/nimiq.js'
+import { createPaymentNotification } from '../services/notifications.js'
 
 export const tipRoutes = new Hono()
 
@@ -55,6 +56,7 @@ tipRoutes.post('/', requireAuth, async (c) => {
     }
     await mongo.collection('articles').updateOne({ id: articleId }, { $inc: { totalTipsLuna: amountLuna } })
     await mongo.collection('users').updateOne({ id: auth.userId }, { $inc: { tipsSentCount: 1 } })
+    await createPaymentNotification({ userId: article.authorId, actorId: auth.userId, type: 'tip', articleId, amountLuna, txHash, createdAt })
 
     db.prepare(`INSERT OR IGNORE INTO tips (id, article_id, sender_id, recipient_id, amount_luna, note, tx_hash, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, 'confirmed')`).run(tipId, articleId, auth.userId, article.authorId, amountLuna,
@@ -119,6 +121,7 @@ tipRoutes.post('/', requireAuth, async (c) => {
     db.prepare(
       'UPDATE users SET tips_sent_count = tips_sent_count + 1 WHERE id = ?'
     ).run(auth.userId)
+    await createPaymentNotification({ userId: article.author_id, actorId: auth.userId, type: 'tip', articleId, amountLuna, txHash })
   }
 
   return c.json({ tipId, status }, 201)

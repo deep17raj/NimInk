@@ -31,6 +31,9 @@ export async function connectMongo(): Promise<Db | null> {
     database.collection('tips').createIndex({ txHash: 1 }, { unique: true }),
     database.collection('tips').createIndex({ articleId: 1, status: 1, createdAt: -1 }),
     database.collection('txReceipts').createIndex({ txHash: 1 }, { unique: true }),
+    database.collection('accessPayments').createIndex({ txHash: 1 }, { unique: true }),
+    database.collection('accessPayments').createIndex({ buyerId: 1, authorId: 1, purpose: 1, expiresAt: 1 }),
+    database.collection('accessPayments').createIndex({ authorId: 1, createdAt: -1 }),
     database.collection('authChallenges').createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
   ])
 

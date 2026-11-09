@@ -16,13 +16,13 @@ import TopBar from '@/components/TopBar.vue'
       <ul>
         <li><strong>Wallet address</strong> — your public Nimiq address, used to identify your account and process payments.</li>
         <li><strong>Device identifier hash</strong> — a one-way hash of the device ID provided by Nimiq Pay, used to prevent duplicate verified reads. We never store the raw device ID.</li>
-        <li><strong>Reading telemetry</strong> — scroll progress (25%, 50%, 75%, 100%) and timestamps during article reading. Used only for read validation and fraud detection in the verified-read reward system.</li>
+        <li><strong>Reading telemetry</strong> — scroll progress (25%, 50%, 75%, 100%) and timestamps during article reading. Used to validate read counts and protect popularity rankings from automated activity.</li>
         <li><strong>IP address hash</strong> — a one-way hash of your IP, used for rate limiting and fraud cluster detection. We never store the raw IP address.</li>
       </ul>
 
       <h2>How it is used</h2>
       <ul>
-        <li>Reading telemetry is used exclusively for validating reads and calculating reward scores. It is never sold or shared.</li>
+        <li>Reading telemetry is used to validate read counts and popularity rankings. Reads do not generate payments. It is never sold or shared.</li>
         <li>Device and IP hashes are used for fraud detection (detecting multiple wallets from the same device or network).</li>
         <li>All on-chain payment data (tips, request payments, staking) is processed through the Nimiq blockchain and is publicly visible.</li>
       </ul>

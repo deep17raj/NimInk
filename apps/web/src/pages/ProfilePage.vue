@@ -14,6 +14,8 @@ const wallet = useWalletStore()
 const articles = ref<any[]>([])
 const loading = ref(true)
 const toast = ref({ show: false, message: '', type: 'success' as 'success' | 'error' })
+const subscriptionPriceNim = ref('')
+const savingSubscription = ref(false)
 
 const initials = computed(() => {
   if (!auth.user) return '?'
@@ -27,8 +29,12 @@ const totalReads = computed(() =>
 onMounted(async () => {
   if (auth.user) {
     try {
-      const { articles: data } = await api.get<{ articles: any[] }>(`/api/articles/user/${auth.user.id}`)
+      const [{ articles: data }, settings] = await Promise.all([
+        api.get<{ articles: any[] }>(`/api/articles/user/${auth.user.id}`),
+        api.get<{ subscriptionPriceLuna: number }>('/api/monetization/settings'),
+      ])
       articles.value = data
+      subscriptionPriceNim.value = settings.subscriptionPriceLuna ? String(settings.subscriptionPriceLuna / 100_000) : ''
     } catch {}
   }
   loading.value = false
@@ -37,6 +43,26 @@ onMounted(async () => {
 function switchLang() {
   const next = getLocale() === 'en' ? 'es' : 'en'
   setLocale(next)
+}
+
+async function saveSubscriptionPrice() {
+  const value = Number(subscriptionPriceNim.value || 0)
+  if (!Number.isFinite(value) || value < 0 || (value > 0 && value < 0.01) || value > 1000) {
+    toast.value = { show: true, message: 'Enter 0 to disable subscriptions, or a price from 0.01 to 1,000 NIM', type: 'error' }
+    return
+  }
+  savingSubscription.value = true
+  try {
+    const result = await api.put<{ subscriptionPriceLuna: number }>('/api/monetization/settings', {
+      subscriptionPriceLuna: Math.round(value * 100_000),
+    })
+    subscriptionPriceNim.value = result.subscriptionPriceLuna ? String(result.subscriptionPriceLuna / 100_000) : ''
+    toast.value = { show: true, message: result.subscriptionPriceLuna ? 'Subscription price saved' : 'Subscriptions disabled', type: 'success' }
+  } catch (e: any) {
+    toast.value = { show: true, message: e.error || 'Could not save subscription price', type: 'error' }
+  } finally {
+    savingSubscription.value = false
+  }
 }
 
 function disconnect() {
@@ -63,16 +89,16 @@ async function resetDemo() {
 </script>
 
 <template>
-  <div class="min-h-[100dvh] pb-24">
+  <div class="min-h-[100dvh] bg-[#f7f8fc] pb-24 dark:bg-[#0c0c0c]">
     <!-- Profile header -->
-    <div class="px-5 pt-safe-top pb-6 border-b border-gray-100 dark:border-[#2a2a2a]">
+    <div class="px-5 pt-safe-top pb-2">
       <div class="py-3">
         <h1 class="text-[18px] font-bold text-[#1a1a1a] dark:text-white">{{ t('nav.profile') }}</h1>
       </div>
 
-      <div v-if="auth.user" class="mt-2">
+      <div v-if="auth.user" class="mt-2 rounded-3xl border border-gray-100 bg-white p-5 shadow-[0_5px_22px_rgba(31,35,72,0.05)] dark:border-[#252525] dark:bg-[#151515]">
         <div class="flex items-center gap-4">
-          <div class="avatar-xl text-2xl">{{ initials }}</div>
+          <div class="avatar-xl bg-gradient-to-br from-[#1F2348] to-[#0582CA] text-2xl text-white shadow-md shadow-blue-900/15">{{ initials }}</div>
           <div class="flex-1 min-w-0">
             <p class="font-bold text-[18px] text-[#1a1a1a] dark:text-white">{{ auth.user.displayName }}</p>
             <p class="text-[13px] text-gray-400 dark:text-gray-500 truncate font-mono mt-0.5">{{ auth.user.address }}</p>
@@ -124,7 +150,22 @@ async function resetDemo() {
         </button>
       </div>
 
+      <!-- Subscription settings -->
       <!-- My articles -->
+      <div class="mt-8">
+        <div class="rounded-2xl border border-gray-100 bg-white p-4 shadow-[0_4px_18px_rgba(31,35,72,0.04)] dark:border-[#252525] dark:bg-[#151515]">
+          <h2 class="font-semibold text-[15px] text-[#1a1a1a] dark:text-white">Optional reader subscription</h2>
+          <p class="text-[12px] text-gray-500 dark:text-gray-400 mt-1 mb-3">Readers pay once for 30 days of access to your subscriber-only articles. Leave at 0 to keep subscriptions off.</p>
+          <div class="flex gap-2">
+            <label class="relative flex-1">
+              <input v-model="subscriptionPriceNim" type="number" min="0" step="0.01" class="input w-full pr-14" placeholder="0.00" />
+              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[12px] text-gray-400">NIM</span>
+            </label>
+            <button @click="saveSubscriptionPrice" class="btn-primary px-4" :disabled="savingSubscription">{{ savingSubscription ? 'Saving…' : 'Save' }}</button>
+          </div>
+        </div>
+      </div>
+
       <div class="mt-8">
         <p class="section-title mb-3 text-[13px]">Your articles</p>
         <div v-if="loading" class="space-y-2">

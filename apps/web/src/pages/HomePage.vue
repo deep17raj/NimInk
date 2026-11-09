@@ -14,10 +14,10 @@ const articles = ref<any[]>([])
 const loading = ref(true)
 const searchQuery = ref('')
 const showSidebar = ref(false)
-const selectedTag = ref<string | null>(null)
 
 const tabs = [
   { key: 'latest', label: () => t('feed.latest') },
+  { key: 'popular', label: () => t('feed.popular') },
   { key: 'top_tipped', label: () => t('feed.topTipped') },
   { key: 'requested', label: () => t('feed.requested') },
 ]
@@ -32,16 +32,7 @@ const filteredArticles = computed(() => {
       (a.tags || []).some((tag: string) => tag.toLowerCase().includes(q))
     )
   }
-  if (selectedTag.value) {
-    result = result.filter(a => (a.tags || []).includes(selectedTag.value))
-  }
   return result
-})
-
-const allTags = computed(() => {
-  const tagSet = new Set<string>()
-  articles.value.forEach(a => (a.tags || []).forEach((tag: string) => tagSet.add(tag)))
-  return Array.from(tagSet).slice(0, 8)
 })
 
 const initials = computed(() => {
@@ -59,10 +50,6 @@ async function fetchArticles(silent = false) {
   } finally {
     loading.value = false
   }
-}
-
-function selectTag(tag: string) {
-  selectedTag.value = selectedTag.value === tag ? null : tag
 }
 
 function disconnect() {
@@ -85,21 +72,17 @@ function fetchArticlesOnFocus() {
   fetchArticles(true)
 }
 watch(activeTab, () => {
-  selectedTag.value = null
   fetchArticles()
 })
 </script>
 
 <template>
-  <div class="min-h-[100dvh]">
+  <div class="min-h-[100dvh] bg-[#f7f8fc] dark:bg-[#0c0c0c]">
     <!-- Header -->
-    <div class="sticky top-0 z-30 bg-white dark:bg-[#111]">
+    <div class="sticky top-0 z-30 border-b border-gray-100/80 bg-white/90 backdrop-blur-xl dark:border-[#252525] dark:bg-[#111]/90">
       <div class="flex items-center justify-between px-5 py-3">
         <button @click="showSidebar = true" class="icon-btn">
           <svg class="w-[22px] h-[22px]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16" /></svg>
-        </button>
-        <button @click="router.push('/profile')" class="icon-btn relative">
-          <svg class="w-[22px] h-[22px]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
         </button>
       </div>
     </div>
@@ -133,20 +116,6 @@ watch(activeTab, () => {
           {{ tab.label() }}
           <span v-if="activeTab === tab.key" class="absolute bottom-0 left-0 right-0 h-[2px] bg-gray-900 dark:bg-white rounded-full" />
         </button>
-        <template v-if="allTags.length">
-          <button
-            v-for="tag in allTags"
-            :key="tag"
-            @click="selectTag(tag)"
-            class="shrink-0 pb-3 text-[15px] font-medium whitespace-nowrap transition-colors relative"
-            :class="selectedTag === tag
-              ? 'text-gray-900 dark:text-white'
-              : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'"
-          >
-            {{ tag }}
-            <span v-if="selectedTag === tag" class="absolute bottom-0 left-0 right-0 h-[2px] bg-gray-900 dark:bg-white rounded-full" />
-          </button>
-        </template>
       </div>
 
       <!-- Loading -->

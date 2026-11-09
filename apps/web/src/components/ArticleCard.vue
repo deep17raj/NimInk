@@ -49,10 +49,10 @@ const preview = computed(() => {
 </script>
 
 <template>
-  <div class="cursor-pointer group">
+  <article class="group mb-4 cursor-pointer rounded-2xl border border-gray-100 bg-white p-4 shadow-[0_4px_18px_rgba(31,35,72,0.045)] transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-100 hover:shadow-[0_10px_28px_rgba(31,35,72,0.08)] dark:border-[#252525] dark:bg-[#151515] dark:hover:border-[#24405c]">
     <!-- Author row -->
     <div class="flex items-center gap-3 mb-3">
-      <div class="avatar-sm">{{ initials }}</div>
+      <div class="avatar-sm bg-blue-50 text-[#1F5D91] dark:bg-[#172638] dark:text-blue-200">{{ initials }}</div>
       <span class="text-[14px] font-semibold text-gray-900 dark:text-gray-100">{{ article.authorName }}</span>
       <span v-if="timeAgo" class="text-[13px] text-gray-400 dark:text-gray-500 ml-auto">{{ timeAgo }}</span>
     </div>
@@ -68,18 +68,17 @@ const preview = computed(() => {
     </p>
 
     <!-- Read more button -->
-    <button class="w-full py-3 rounded-xl bg-[#1a1a1a] dark:bg-white text-white dark:text-[#1a1a1a] text-[14px] font-semibold hover:bg-[#333] dark:hover:bg-gray-200 transition-colors active:scale-[0.98]">
+    <button class="w-full rounded-xl bg-gradient-to-r from-[#1F2348] to-[#0582CA] py-3 text-[14px] font-semibold text-white shadow-sm shadow-blue-900/10 transition-all hover:brightness-110 active:scale-[0.98]">
       Read more
     </button>
 
     <!-- Metadata row (subtle) -->
-    <div v-if="article.totalTipsLuna > 0 || article.verifiedReadCount > 0" class="flex items-center gap-3 mt-3 text-[12px] text-gray-400 dark:text-gray-500">
+    <div class="flex items-center gap-3 mt-3 text-[12px] text-gray-400 dark:text-gray-500">
       <span>{{ article.readTimeMinutes }} min read</span>
-      <span v-if="article.verifiedReadCount > 0">· {{ article.verifiedReadCount }} reads</span>
+      <span>· {{ article.verifiedReadCount || 0 }} reads</span>
       <span v-if="article.totalTipsLuna > 0" class="text-gold-600 dark:text-gold-400 font-medium ml-auto">{{ formatNim(article.totalTipsLuna) }} NIM</span>
     </div>
 
     <!-- Separator -->
-    <div class="h-px bg-gray-100 dark:bg-[#2a2a2a] mt-6 mb-6" />
-  </div>
+  </article>
 </template>

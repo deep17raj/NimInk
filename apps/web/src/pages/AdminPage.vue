@@ -1,24 +1,20 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { api } from '@/composables/useApi'
-import { formatNim } from '@nimink/shared'
 import Toast from '@/components/Toast.vue'
 
 const reports = ref<any[]>([])
-const payouts = ref<any[]>([])
 const flags = ref<any>({ deviceClusters: [], ipClusters: [] })
 const loading = ref(true)
 const toast = ref({ show: false, message: '', type: 'success' as 'success' | 'error' })
 
 onMounted(async () => {
   try {
-    const [r, p, f] = await Promise.all([
+    const [r, f] = await Promise.all([
       api.get<{ reports: any[] }>('/api/admin/reports'),
-      api.get<{ payouts: any[] }>('/api/admin/pool/payouts'),
       api.get<any>('/api/admin/flags'),
     ])
     reports.value = r.reports
-    payouts.value = p.payouts
     flags.value = f
   } catch (e) {
     console.error(e)
@@ -68,19 +64,6 @@ async function restoreContent(reportId: string) {
           <button @click="hideContent(r.id)" class="btn-outline text-xs px-3 py-1.5 text-red-500 border-red-200">Hide</button>
           <button @click="restoreContent(r.id)" class="btn-outline text-xs px-3 py-1.5">Dismiss</button>
         </div>
-      </div>
-    </div>
-
-    <!-- Pool payouts -->
-    <h2 class="font-semibold mb-3">Pool Payouts ({{ payouts.length }})</h2>
-    <div v-if="payouts.length === 0" class="text-sm text-gray-400 mb-6">No payouts yet</div>
-    <div v-else class="space-y-2 mb-6">
-      <div v-for="p in payouts" :key="p.id" class="card flex items-center justify-between">
-        <div>
-          <p class="text-sm font-medium">{{ p.authorName }}</p>
-          <p class="text-xs text-gray-400">Score: {{ p.score.toFixed(2) }} · {{ p.status }}</p>
-        </div>
-        <p class="text-sm font-semibold text-gold-600">{{ formatNim(p.amountLuna) }} NIM</p>
       </div>
     </div>
 

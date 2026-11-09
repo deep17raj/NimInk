@@ -7,6 +7,8 @@ import {
 } from '@nimink/shared'
 import { db } from '../index.js'
 import { requireAuth, getAuth } from '../middleware/auth.js'
+import { getMongoDb } from '../db/mongo.js'
+import { canReadArticle, canReadSqlArticle } from '../services/article-access.js'
 import crypto from 'node:crypto'
 
 export const readRoutes = new Hono()
@@ -21,6 +23,19 @@ readRoutes.post('/start', requireAuth, async (c) => {
     "SELECT * FROM articles WHERE id = ? AND status = 'published'"
   ).get(articleId) as any
   if (!article) return c.json({ error: 'Article not found', code: 'NOT_FOUND' }, 404)
+
+  const mongo = getMongoDb()
+  if (mongo) {
+    const sharedArticle = await mongo.collection<any>('articles').findOne({ id: articleId, status: 'published' })
+    if (sharedArticle && !(await canReadArticle(mongo, sharedArticle, auth.userId))) {
+      return c.json({ error: 'Unlock this premium article before starting a read', code: 'PREMIUM_LOCKED' }, 402)
+    }
+    if (!sharedArticle && !canReadSqlArticle(db, article, auth.userId)) {
+      return c.json({ error: 'Unlock this premium article before starting a read', code: 'PREMIUM_LOCKED' }, 402)
+    }
+  } else if (!canReadSqlArticle(db, article, auth.userId)) {
+    return c.json({ error: 'Unlock this premium article before starting a read', code: 'PREMIUM_LOCKED' }, 402)
+  }
 
   if (article.author_id === auth.userId) {
     return c.json({ error: 'Cannot validate reading your own article', code: 'SELF_READ' }, 400)
@@ -153,6 +168,14 @@ readRoutes.post('/finish', requireAuth, async (c) => {
   db.prepare(
     'UPDATE articles SET verified_read_count = verified_read_count + 1 WHERE id = ?'
   ).run(article.id)
+
+  const mongo = getMongoDb()
+  if (mongo) {
+    await mongo.collection('articles').updateOne(
+      { id: article.id, status: 'published' },
+      { $inc: { verifiedReadCount: 1 } },
+    )
+  }
 
   db.prepare(
     'UPDATE users SET valid_read_count = valid_read_count + 1 WHERE id = ?'

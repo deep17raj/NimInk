@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { api } from '@/composables/useApi'
@@ -10,40 +9,50 @@ import TopBar from '@/components/TopBar.vue'
 import PaymentConfirm from '@/components/PaymentConfirm.vue'
 import Toast from '@/components/Toast.vue'
 
-const router = useRouter()
 const auth = useAuthStore()
 const wallet = useWalletStore()
 
 const validators = ref<any[]>([])
 const myStakes = ref<any[]>([])
 const loading = ref(true)
+const loadError = ref('')
 const selectedValidator = ref<any>(null)
 const stakeAmount = ref(MIN_STAKE_NIM)
 const showConfirm = ref(false)
 const stakeLoading = ref(false)
 const toast = ref({ show: false, message: '', type: 'success' as 'success' | 'error' })
 
-const isFirstStake = computed(() => myStakes.value.length === 0)
+const activeStakes = computed(() => myStakes.value.filter((stake) => stake.status === 'active'))
+const totalStakedLuna = computed(() => activeStakes.value.reduce((sum, stake) => sum + Number(stake.amountLuna || 0), 0))
+const totalRewardsLuna = computed(() => myStakes.value.reduce((sum, stake) => sum + Number(stake.rewardsLuna || 0), 0))
+const isFirstStake = computed(() => activeStakes.value.length === 0)
 const minAmount = computed(() => isFirstStake.value ? MIN_STAKE_NIM : 1)
+const amountLuna = computed(() => Number.isFinite(stakeAmount.value) ? nimToLuna(stakeAmount.value) : 0)
+const canStake = computed(() => !!selectedValidator.value && stakeAmount.value >= minAmount.value && amountLuna.value <= wallet.balance && !stakeLoading.value)
 
-onMounted(async () => {
+async function loadStakeData() {
+  loading.value = true
+  loadError.value = ''
   try {
     const [v, s] = await Promise.all([
       api.get<{ validators: any[] }>('/api/staking/validators'),
       api.get<{ stakes: any[] }>('/api/staking/my-stakes'),
+      wallet.fetchBalance(),
     ])
     validators.value = v.validators
     myStakes.value = s.stakes
-    if (v.validators.length > 0) selectedValidator.value = v.validators[0]
-  } catch (e) {
-    console.error(e)
+    if (!selectedValidator.value && v.validators.length > 0) selectedValidator.value = v.validators[0]
+  } catch (e: any) {
+    loadError.value = e?.error || 'Could not load validators and your stake.'
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(loadStakeData)
 
 async function confirmStake() {
-  if (!selectedValidator.value || stakeAmount.value < minAmount.value) return
+  if (!canStake.value) return
   stakeLoading.value = true
   try {
     const { txHash } = await wallet.sendStake(selectedValidator.value.address, nimToLuna(stakeAmount.value))
@@ -54,8 +63,7 @@ async function confirmStake() {
     })
     showConfirm.value = false
     toast.value = { show: true, message: t('stake.success'), type: 'success' }
-    const { stakes } = await api.get<{ stakes: any[] }>('/api/staking/my-stakes')
-    myStakes.value = stakes
+    await loadStakeData()
   } catch (e: any) {
     toast.value = { show: true, message: e.error || 'Staking failed', type: 'error' }
   } finally {
@@ -69,6 +77,28 @@ async function confirmStake() {
     <TopBar :title="t('stake.title')" />
 
     <div class="px-5 pb-8">
+      <div v-if="loading" class="space-y-3 py-5">
+        <div class="skeleton h-28 rounded-2xl" />
+        <div class="skeleton h-20 rounded-2xl" />
+      </div>
+
+      <div v-else-if="loadError" class="mb-5 rounded-2xl border border-red-100 bg-red-50 p-4 dark:border-red-950 dark:bg-red-950/20">
+        <p class="text-sm font-semibold text-red-700 dark:text-red-300">{{ loadError }}</p>
+        <button class="mt-2 text-xs font-semibold text-red-700 underline dark:text-red-300" @click="loadStakeData">Try again</button>
+      </div>
+
+      <template v-if="!loading && !loadError">
+      <div class="mb-5 grid grid-cols-2 gap-3">
+        <div class="rounded-2xl bg-[#1F2348] p-4 text-white">
+          <p class="text-xs text-blue-100">Currently staked</p>
+          <p class="mt-1 text-xl font-bold">{{ formatNim(totalStakedLuna) }} <span class="text-xs font-medium text-blue-100">NIM</span></p>
+        </div>
+        <div class="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 dark:border-emerald-950 dark:bg-emerald-950/20">
+          <p class="text-xs text-emerald-700 dark:text-emerald-300">Demo rewards earned</p>
+          <p class="mt-1 text-xl font-bold text-emerald-800 dark:text-emerald-200">{{ formatNim(totalRewardsLuna) }} <span class="text-xs font-medium">NIM</span></p>
+        </div>
+      </div>
+
       <!-- Warning -->
       <div class="rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4 mb-6">
         <p class="text-[14px] text-amber-800 dark:text-amber-200">{{ t('stake.warning') }}</p>
@@ -95,6 +125,7 @@ async function confirmStake() {
       <!-- Validator selection -->
       <h2 class="section-title mb-3">{{ t('stake.validator') }}</h2>
       <div class="space-y-3 mb-6">
+        <div v-if="validators.length === 0" class="rounded-2xl border border-gray-100 bg-white p-4 text-sm text-gray-500 dark:border-[#2a2a2a] dark:bg-[#1a1a1a]">No validators are available right now.</div>
         <button
           v-for="v in validators"
           :key="v.id"
@@ -135,14 +166,16 @@ async function confirmStake() {
         v-model.number="stakeAmount"
         type="number"
         :min="minAmount"
+        :max="wallet.balance / 100000"
+        step="1"
         class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-[#333] bg-white dark:bg-[#1a1a1a] text-[#1a1a1a] dark:text-white text-[15px] focus:outline-none focus:border-gray-400 dark:focus:border-gray-500 transition-colors mb-2"
       />
       <p class="text-[12px] text-gray-400 dark:text-gray-500 mb-6">
-        Balance: {{ formatNim(wallet.balance) }} NIM
+        Available: {{ formatNim(wallet.balance) }} NIM<span v-if="stakeAmount > wallet.balance / 100000" class="ml-1 text-red-500">· Amount exceeds balance</span>
       </p>
 
-      <button @click="showConfirm = true" class="btn-primary w-full" :disabled="!selectedValidator || stakeAmount < minAmount">
-        {{ t('stake.confirm') }}
+      <button @click="showConfirm = true" class="btn-primary w-full" :disabled="!canStake">
+        {{ stakeAmount < minAmount ? `Minimum ${minAmount} NIM` : 'Review stake' }}
       </button>
 
       <!-- Exit explainer -->
@@ -155,6 +188,7 @@ async function confirmStake() {
           <p>4. Remove to get your NIM back</p>
         </div>
       </div>
+      </template>
     </div>
   </div>
 

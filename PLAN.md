@@ -40,18 +40,18 @@
 - Reputation tracking (paid on time ratio)
 - "Awarded, unpaid" 7-day warning
 
-### Phase 4: Read Validation & Weekly Pool
+### Phase 4: Read Validation & Popularity
 - Read session: start → checkpoints → finish → quiz
 - Server-side validation: identity, timing, quiz, reputation weight
 - Caps and rate limits per wallet/device/IP
 - Fraud flags and cluster detection
-- Weekly pool entity, score formula, distribution
-- Admin screen at `/admin`: reports queue, pool status, payout list, flags
+- Popular articles feed sorted by validated read count
+- Admin screen at `/admin`: reports queue and flags
 - Fast-forward support for demo
 
 ### Phase 5: Earnings & Staking
 - Earnings screen: balance, breakdown, bar chart, tx list
-- Pending read rewards with payout date
+- Earnings from tips, requested articles, optional subscriptions, and individual premium article sales
 - Stake flow: validator list (mock), amount picker, explanations
 - Demo staking: ledger entries, simulated rewards
 - Real-mode staking calls: `sendNewStakerTransaction`, `sendStakeTransaction`

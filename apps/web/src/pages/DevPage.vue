@@ -22,15 +22,6 @@ async function fastForward(days: number) {
   }
 }
 
-async function distributePool() {
-  try {
-    const result = await api.post('/api/pool/distribute') as any
-    toast.value = { show: true, message: `Pool distributed to ${result.distributed} authors`, type: 'success' }
-  } catch (e: any) {
-    toast.value = { show: true, message: e.error || 'Failed', type: 'error' }
-  }
-}
-
 async function accrueRewards() {
   try {
     const result = await api.post('/api/staking/accrue-rewards') as any
@@ -66,11 +57,8 @@ async function resetAll() {
       </div>
 
       <div class="card">
-        <h2 class="font-semibold mb-2">Pool & Rewards</h2>
-        <div class="flex gap-2">
-          <button @click="distributePool" class="btn-secondary flex-1 text-sm">Distribute Pool</button>
-          <button @click="accrueRewards" class="btn-secondary flex-1 text-sm">Accrue Staking Rewards</button>
-        </div>
+        <h2 class="font-semibold mb-2">Staking</h2>
+        <button @click="accrueRewards" class="btn-secondary w-full text-sm">Accrue Demo Staking Rewards</button>
       </div>
 
       <div class="card">

@@ -42,6 +42,10 @@ const routes = [
     component: () => import('./pages/EarningsPage.vue'),
   },
   {
+    path: '/notifications',
+    component: () => import('./pages/NotificationsPage.vue'),
+  },
+  {
     path: '/stake',
     component: () => import('./pages/StakePage.vue'),
     meta: { hideNav: true },

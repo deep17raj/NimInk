@@ -14,8 +14,8 @@ const router = useRouter()
 </script>
 
 <template>
-  <div class="sticky top-0 z-40 bg-white dark:bg-[#111]">
-    <div class="flex items-center justify-between px-5 py-3">
+  <div class="sticky top-0 z-40 border-b border-gray-100/80 bg-white/90 backdrop-blur-xl dark:border-[#252525] dark:bg-[#111]/90">
+    <div class="flex h-14 items-center justify-between px-5">
       <!-- Left: back button -->
       <button v-if="showBack" @click="router.back()" class="icon-btn">
         <svg class="w-[22px] h-[22px]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
@@ -23,7 +23,7 @@ const router = useRouter()
       <div v-else class="w-10" />
 
       <!-- Center: title -->
-      <span v-if="title" class="text-[15px] font-semibold text-[#1a1a1a] dark:text-white">{{ title }}</span>
+        <span v-if="title" class="text-[15px] font-bold tracking-tight text-[#1a1a1a] dark:text-white">{{ title }}</span>
 
       <!-- Right: home button -->
       <button v-if="showHome" @click="router.push('/home')" class="icon-btn">

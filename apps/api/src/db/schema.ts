@@ -11,6 +11,7 @@ export function initializeDatabase(dbPath: string): Database.Database {
       address TEXT UNIQUE NOT NULL,
       display_name TEXT NOT NULL DEFAULT '',
       bio TEXT NOT NULL DEFAULT '',
+      subscription_price_luna INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       valid_read_count INTEGER NOT NULL DEFAULT 0,
       tips_sent_count INTEGER NOT NULL DEFAULT 0
@@ -29,7 +30,9 @@ export function initializeDatabase(dbPath: string): Database.Database {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       total_tips_luna INTEGER NOT NULL DEFAULT 0,
-      verified_read_count INTEGER NOT NULL DEFAULT 0
+      verified_read_count INTEGER NOT NULL DEFAULT 0,
+      access_type TEXT NOT NULL DEFAULT 'free' CHECK(access_type IN ('free', 'subscription', 'one_time')),
+      price_luna INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS read_sessions (
@@ -104,6 +107,31 @@ export function initializeDatabase(dbPath: string): Database.Database {
       payout_date TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS access_payments (
+      id TEXT PRIMARY KEY,
+      tx_hash TEXT UNIQUE NOT NULL,
+      buyer_id TEXT NOT NULL REFERENCES users(id),
+      author_id TEXT NOT NULL REFERENCES users(id),
+      article_id TEXT REFERENCES articles(id),
+      purpose TEXT NOT NULL CHECK(purpose IN ('subscription', 'article')),
+      amount_luna INTEGER NOT NULL,
+      expires_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS notifications (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      type TEXT NOT NULL CHECK(type IN ('tip', 'subscription', 'article_purchase')),
+      actor_id TEXT NOT NULL REFERENCES users(id),
+      article_id TEXT,
+      amount_luna INTEGER NOT NULL,
+      tx_hash TEXT UNIQUE NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      read_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, created_at);
+
     CREATE TABLE IF NOT EXISTS reports (
       id TEXT PRIMARY KEY,
       target_type TEXT NOT NULL CHECK(target_type IN ('article', 'request')),
@@ -177,6 +205,19 @@ export function initializeDatabase(dbPath: string): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_payouts_pool ON payouts(pool_id);
     CREATE INDEX IF NOT EXISTS idx_reports_target ON reports(target_type, target_id);
   `)
+
+  // Add columns for existing local SQLite databases created before monetization.
+  const userColumns = db.prepare('PRAGMA table_info(users)').all() as Array<{ name: string }>
+  if (!userColumns.some((column) => column.name === 'subscription_price_luna')) {
+    db.exec('ALTER TABLE users ADD COLUMN subscription_price_luna INTEGER NOT NULL DEFAULT 0')
+  }
+  const articleColumns = db.prepare('PRAGMA table_info(articles)').all() as Array<{ name: string }>
+  if (!articleColumns.some((column) => column.name === 'access_type')) {
+    db.exec("ALTER TABLE articles ADD COLUMN access_type TEXT NOT NULL DEFAULT 'free'")
+  }
+  if (!articleColumns.some((column) => column.name === 'price_luna')) {
+    db.exec('ALTER TABLE articles ADD COLUMN price_luna INTEGER NOT NULL DEFAULT 0')
+  }
 
   return db
 }

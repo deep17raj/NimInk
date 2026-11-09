@@ -19,7 +19,7 @@ const isActive = (path: string) => active.value.startsWith(path)
 </script>
 
 <template>
-  <nav aria-label="Main navigation" class="fixed bottom-0 left-1/2 z-40 w-full max-w-[414px] -translate-x-1/2 border-t border-gray-100 bg-white/95 pb-safe-bottom shadow-[0_-8px_24px_rgba(17,24,39,0.06)] backdrop-blur dark:border-[#2a2a2a] dark:bg-[#111]/95">
+  <nav aria-label="Main navigation" class="fixed bottom-0 left-1/2 z-40 w-full max-w-[414px] -translate-x-1/2 border-t border-gray-100/90 bg-white/90 pb-safe-bottom shadow-[0_-10px_32px_rgba(31,35,72,0.08)] backdrop-blur-xl dark:border-[#252525] dark:bg-[#111]/90">
     <div class="grid h-16 grid-cols-5 items-center px-2">
       <button
         v-for="tab in tabs"

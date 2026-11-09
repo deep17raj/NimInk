@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: nimink
+    runtime: node
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: VITE_WALLET_MODE
+        value: nimiq
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DATABASE
+        value: nimink
+      - key: JWT_SECRET
+        generateValue: true
+      - key: NIMIQ_RPC_URL
+        value: https://rpc.nimiqwatch.com
