@@ -204,6 +204,7 @@ async function resetDemo() {
           >
             <div class="mb-2 flex flex-wrap items-center gap-1.5">
               <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">Published</span>
+              <span class="rounded-full border border-violet-100 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:border-violet-900/70 dark:bg-violet-950/40 dark:text-violet-300">Written by you</span>
               <span v-if="a.accessType === 'subscription' || a.accessType === 'one_time'" class="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-[#1F5D91] dark:bg-[#172638] dark:text-blue-200">
                 {{ a.accessType === 'subscription' ? 'Subscriber-only' : 'Premium' }}
               </span>

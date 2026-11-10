@@ -295,13 +295,14 @@ async function submitReport() {
       </h1>
 
       <!-- Author row -->
-      <div class="flex items-center gap-3 mb-8">
+      <div class="flex flex-wrap items-center gap-3 mb-8">
         <button @click="router.push(`/profile/${article.authorId}`)" class="avatar-sm">
           {{ initials }}
         </button>
         <button @click="router.push(`/profile/${article.authorId}`)" class="text-[14px] font-semibold text-[#1a1a1a] dark:text-white hover:underline">
           {{ article.authorName }}
         </button>
+        <span v-if="isOwnArticle" class="rounded-full border border-violet-100 bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700 dark:border-violet-900/70 dark:bg-violet-950/40 dark:text-violet-300">Written by you</span>
         <span v-if="timeAgo" class="text-[13px] text-gray-400 dark:text-gray-500 ml-auto">{{ timeAgo }}</span>
       </div>
 

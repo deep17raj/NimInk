@@ -2,10 +2,13 @@
 import { formatNim } from '@nimink/shared'
 import { t } from '@/i18n'
 import { computed } from 'vue'
+import { useAuthStore } from '@/stores/auth'
 
+const auth = useAuthStore()
 const props = defineProps<{
   article: {
     id: string
+    authorId?: string
     title: string
     body?: string
     authorName: string
@@ -17,6 +20,8 @@ const props = defineProps<{
     createdAt?: string
   }
 }>()
+
+const isWrittenByMe = computed(() => !!props.article.authorId && props.article.authorId === auth.user?.id)
 
 const initials = computed(() => {
   const name = props.article.authorName || '?'
@@ -59,10 +64,13 @@ const preview = computed(() => {
     </div>
 
     <!-- Premium access label, visible before opening the article -->
-    <div v-if="article.accessType === 'subscription' || article.accessType === 'one_time'" class="mb-2">
-      <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-[#1F5D91] dark:bg-[#172638] dark:text-blue-200">
+    <div v-if="isWrittenByMe || article.accessType === 'subscription' || article.accessType === 'one_time'" class="mb-2 flex flex-wrap items-center gap-1.5">
+      <span v-if="article.accessType === 'subscription' || article.accessType === 'one_time'" class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-[#1F5D91] dark:bg-[#172638] dark:text-blue-200">
         <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2" /><path stroke-linecap="round" stroke-linejoin="round" d="M8 10V7a4 4 0 118 0v3" /></svg>
         {{ article.accessType === 'subscription' ? 'Subscriber-only article' : 'Premium article' }}
+      </span>
+      <span v-if="isWrittenByMe" class="inline-flex items-center rounded-full border border-violet-100 bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700 dark:border-violet-900/70 dark:bg-violet-950/40 dark:text-violet-300">
+        Written by you
       </span>
     </div>
 
