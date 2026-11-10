@@ -81,7 +81,7 @@ function statusLabel(status: string) {
   const labels: Record<string, string> = {
     open: 'Open',
     in_review: 'In review',
-    awarded: 'Awarded',
+    awarded: 'In review',
     paid: 'Paid',
   }
   return labels[status] || status.replaceAll('_', ' ')
@@ -91,7 +91,7 @@ function statusClass(status: string) {
   const classes: Record<string, string> = {
     open: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300',
     in_review: 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300',
-    awarded: 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300',
+    awarded: 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300',
     paid: 'bg-gray-100 text-gray-600 dark:bg-[#292929] dark:text-gray-300',
   }
   return classes[status] || 'bg-gray-100 text-gray-600 dark:bg-[#292929] dark:text-gray-300'
