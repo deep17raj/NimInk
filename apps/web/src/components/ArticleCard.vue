@@ -11,6 +11,7 @@ const props = defineProps<{
     authorName: string
     readTimeMinutes: number
     tags: string[]
+    accessType?: 'free' | 'subscription' | 'one_time'
     totalTipsLuna: number
     verifiedReadCount: number
     createdAt?: string
@@ -55,6 +56,14 @@ const preview = computed(() => {
       <div class="avatar-sm bg-blue-50 text-[#1F5D91] dark:bg-[#172638] dark:text-blue-200">{{ initials }}</div>
       <span class="text-[14px] font-semibold text-gray-900 dark:text-gray-100">{{ article.authorName }}</span>
       <span v-if="timeAgo" class="text-[13px] text-gray-400 dark:text-gray-500 ml-auto">{{ timeAgo }}</span>
+    </div>
+
+    <!-- Premium access label, visible before opening the article -->
+    <div v-if="article.accessType === 'subscription' || article.accessType === 'one_time'" class="mb-2">
+      <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-[#1F5D91] dark:bg-[#172638] dark:text-blue-200">
+        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2" /><path stroke-linecap="round" stroke-linejoin="round" d="M8 10V7a4 4 0 118 0v3" /></svg>
+        {{ article.accessType === 'subscription' ? 'Subscriber-only article' : 'Premium article' }}
+      </span>
     </div>
 
     <!-- Title -->

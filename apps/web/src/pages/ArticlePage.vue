@@ -20,7 +20,6 @@ const wallet = useWalletStore()
 const article = ref<any>(null)
 const loading = ref(true)
 const error = ref('')
-const readCounted = ref(false)
 const readCountError = ref('')
 const bookmarked = ref(false)
 
@@ -96,7 +95,6 @@ async function countArticleRead(articleId: string, userId: string) {
     })
     countedReadKeys.add(key)
     if (article.value?.id === articleId && auth.user?.id === userId) {
-      readCounted.value = true
       article.value.verifiedReadCount = result.verifiedReadCount
     }
   } catch (e: any) {
@@ -340,14 +338,7 @@ async function submitReport() {
         </span>
       </div>
 
-      <!-- Read status -->
-      <div v-if="readCounted" class="mt-8 rounded-2xl border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/30 text-center py-4">
-        <div class="flex items-center justify-center gap-2">
-          <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          <p class="text-green-700 dark:text-green-300 font-semibold text-[14px]">Read counted</p>
-        </div>
-      </div>
-      <div v-else-if="readCountError" class="mt-6 flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900 dark:bg-red-950/30">
+      <div v-if="readCountError" class="mt-6 flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900 dark:bg-red-950/30">
         <p class="text-[13px] text-red-700 dark:text-red-300">{{ readCountError }}</p>
         <button @click="retryReadCount" class="shrink-0 text-[13px] font-semibold text-red-800 underline dark:text-red-200">Retry</button>
       </div>
