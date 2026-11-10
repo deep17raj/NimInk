@@ -6,10 +6,45 @@ import { requireAuth, getAuth } from '../middleware/auth.js'
 
 export const stakingRoutes = new Hono()
 
+// Official Nimiq validators API (https://github.com/nimiq/validators-api)
+const VALIDATORS_API_URL = process.env.NIMIQ_VALIDATORS_API_URL || 'https://validators-api-main.je-cf9.workers.dev/api/v1/validators'
+const SYNC_TTL_MS = 10 * 60 * 1000
+let lastSync = 0
+
+async function syncOfficialValidators(mongo: NonNullable<ReturnType<typeof getMongoDb>>) {
+  if (Date.now() - lastSync < SYNC_TTL_MS) return
+  try {
+    const res = await fetch(VALIDATORS_API_URL, { signal: AbortSignal.timeout(8000) })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const list = (await res.json()) as any[]
+    const col = mongo.collection<any>('validators')
+    for (const v of list) {
+      if (!v.isListed || !v.address || typeof v.fee !== 'number') continue
+      await col.updateOne(
+        { address: v.address },
+        {
+          $set: {
+            name: v.name,
+            fee: v.fee,
+            payoutType: v.payoutType === 'restake' ? 'restake' : 'direct',
+            trustScore: v.score?.total ?? 0,
+          },
+          $setOnInsert: { id: uuid(), address: v.address },
+        },
+        { upsert: true },
+      )
+    }
+    lastSync = Date.now()
+  } catch (err) {
+    console.warn('Could not sync validators from official API, using stored list:', err)
+  }
+}
+
 stakingRoutes.get('/validators', async (c) => {
   const mongo = getMongoDb()
   if (!mongo) return c.json({ error: 'Database is not configured', code: 'DATABASE_UNAVAILABLE' }, 503)
 
+  await syncOfficialValidators(mongo)
   const rows = await mongo.collection<any>('validators').find({}).sort({ trustScore: -1 }).toArray()
   return c.json({
     validators: rows.map((v) => ({
