@@ -1,14 +1,23 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { v4 as uuid } from 'uuid'
+import dotenv from 'dotenv'
+import { MongoClient } from 'mongodb'
 import { DEMO_INITIAL_BALANCE_LUNA, DEFAULT_POOL_SIZE_LUNA, estimateReadTimeMinutes } from '@nimink/shared'
-import { initializeDatabase } from './schema.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const dbPath = process.env.DB_PATH || path.join(__dirname, '..', '..', 'nimink.db')
-const db = initializeDatabase(dbPath)
+dotenv.config({ path: path.resolve(__dirname, '../../../../.env') })
 
-console.log('Seeding NimInk database...')
+const uri = process.env.MONGODB_URI
+if (!uri) throw new Error('MONGODB_URI is required to seed the database')
+
+const databaseName = process.env.MONGODB_DATABASE || 'nimink'
+const client = new MongoClient(uri, { serverSelectionTimeoutMS: 10_000 })
+
+console.log('Seeding NimInk database (MongoDB)...')
+
+await client.connect()
+const db = client.db(databaseName)
 
 // Demo accounts
 const accounts = [
@@ -18,12 +27,16 @@ const accounts = [
 ]
 
 for (const a of accounts) {
-  db.prepare(
-    'INSERT OR REPLACE INTO demo_accounts (address, display_name, balance_luna) VALUES (?, ?, ?)'
-  ).run(a.address, a.name, DEMO_INITIAL_BALANCE_LUNA)
-  db.prepare(
-    'INSERT OR REPLACE INTO users (id, address, display_name) VALUES (?, ?, ?)'
-  ).run(a.id, a.address, a.name)
+  await db.collection('demoAccounts').updateOne(
+    { address: a.address },
+    { $set: { address: a.address, displayName: a.name, balanceLuna: DEMO_INITIAL_BALANCE_LUNA, faucetUsesToday: 0, faucetLastDate: null } },
+    { upsert: true },
+  )
+  await db.collection('users').updateOne(
+    { address: a.address },
+    { $set: { id: a.id, address: a.address, displayName: a.name, bio: '', createdAt: new Date(), validReadCount: 0, tipsSentCount: 0, subscriptionPriceLuna: 0 } },
+    { upsert: true },
+  )
 }
 
 // Validators (mock)
@@ -34,9 +47,11 @@ const validators = [
 ]
 
 for (const v of validators) {
-  db.prepare(
-    'INSERT OR REPLACE INTO validators (id, name, address, fee, payout_type, trust_score) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(v.id, v.name, v.address, v.fee, v.payout, v.trust)
+  await db.collection('validators').updateOne(
+    { address: v.address },
+    { $set: { id: v.id, name: v.name, address: v.address, fee: v.fee, payoutType: v.payout, trustScore: v.trust } },
+    { upsert: true },
+  )
 }
 
 // Articles
@@ -207,35 +222,34 @@ No system is perfect. The goal is keeping popularity rankings informative while 
   },
 ]
 
+const articleIds: Array<{ id: string; authorId: string }> = []
 for (const a of articles) {
-  const authorIdx = Math.floor(Math.random() * accounts.length)
-  const author = accounts[authorIdx]
+  const author = accounts[Math.floor(Math.random() * accounts.length)]
   const wordCount = a.body.split(/\s+/).length
   const id = uuid()
-
-  db.prepare(
-    `INSERT INTO articles (id, author_id, title, body, tags, word_count, read_time_minutes, quiz_json, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'published')`
-  ).run(id, author.id, a.title, a.body, JSON.stringify(a.tags), wordCount,
-    estimateReadTimeMinutes(wordCount), JSON.stringify(a.quiz))
+  const now = new Date()
+  await db.collection('articles').insertOne({
+    id, authorId: author.id, title: a.title, body: a.body, tags: a.tags,
+    wordCount, readTimeMinutes: estimateReadTimeMinutes(wordCount), quizJson: a.quiz,
+    status: 'published', createdAt: now, updatedAt: now, totalTipsLuna: 0, verifiedReadCount: 0,
+    accessType: 'free', priceLuna: 0,
+  })
+  articleIds.push({ id, authorId: author.id })
 }
 
 // Requests
-const request1Id = uuid()
-const request2Id = uuid()
-db.prepare(
-  `INSERT INTO requests (id, requester_id, topic, description, budget_luna, deadline, status)
-   VALUES (?, ?, ?, ?, ?, ?, 'open')`
-).run(request1Id, accounts[1].id, 'Best practices for Mini App security',
-  'Looking for a comprehensive guide on securing Mini Apps, including payment verification, input validation, and data privacy.',
-  500 * 100000, new Date(Date.now() + 14 * 86400000).toISOString())
-
-db.prepare(
-  `INSERT INTO requests (id, requester_id, topic, description, budget_luna, deadline, status)
-   VALUES (?, ?, ?, ?, ?, ?, 'open')`
-).run(request2Id, accounts[2].id, 'How to integrate EVM tokens in Mini Apps',
-  'Need a practical tutorial showing how to send and receive ERC-20 tokens (like USDT) within a Nimiq Mini App.',
-  300 * 100000, new Date(Date.now() + 21 * 86400000).toISOString())
+await db.collection('requests').insertOne({
+  id: uuid(), requesterId: accounts[1].id, topic: 'Best practices for Mini App security',
+  description: 'Looking for a comprehensive guide on securing Mini Apps, including payment verification, input validation, and data privacy.',
+  budgetLuna: 500 * 100000, deadline: new Date(Date.now() + 14 * 86400000), status: 'open',
+  winnerId: null, txHash: null, createdAt: new Date(), awardedAt: null,
+})
+await db.collection('requests').insertOne({
+  id: uuid(), requesterId: accounts[2].id, topic: 'How to integrate EVM tokens in Mini Apps',
+  description: 'Need a practical tutorial showing how to send and receive ERC-20 tokens (like USDT) within a Nimiq Mini App.',
+  budgetLuna: 300 * 100000, deadline: new Date(Date.now() + 21 * 86400000), status: 'open',
+  winnerId: null, txHash: null, createdAt: new Date(), awardedAt: null,
+})
 
 // Weekly pool
 const now = new Date()
@@ -245,30 +259,30 @@ weekStart.setHours(0, 0, 0, 0)
 const weekEnd = new Date(weekStart)
 weekEnd.setDate(weekStart.getDate() + 7)
 
-db.prepare(
-  `INSERT INTO pools (id, week_start, week_end, total_luna, sponsor)
-   VALUES (?, ?, ?, ?, ?)`
-).run(uuid(), weekStart.toISOString(), weekEnd.toISOString(), DEFAULT_POOL_SIZE_LUNA, 'Demo Labs')
+await db.collection('pools').insertOne({
+  id: uuid(), weekStart, weekEnd, totalLuna: DEFAULT_POOL_SIZE_LUNA, sponsor: 'Demo Labs',
+  distributed: false, createdAt: new Date(),
+})
 
 // Sample tips
-const articleRows = db.prepare("SELECT id, author_id FROM articles WHERE status = 'published' LIMIT 3").all() as any[]
-for (const art of articleRows) {
-  const tipper = accounts.find(a => a.id !== art.author_id)!
+const sampleArticles = articleIds.slice(0, 3)
+for (const art of sampleArticles) {
+  const tipper = accounts.find((a) => a.id !== art.authorId)!
+  const author = accounts.find((a) => a.id === art.authorId)!
   const tipAmount = [100000, 500000, 1000000][Math.floor(Math.random() * 3)]
   const txHash = `demo_seed_${uuid()}`
+  const createdAt = new Date()
 
-  db.prepare(
-    `INSERT INTO demo_transactions (id, from_address, to_address, value_luna, data, tx_hash, status)
-     VALUES (?, ?, ?, ?, ?, ?, 'confirmed')`
-  ).run(uuid(), tipper.address, accounts.find(a => a.id === art.author_id)!.address, tipAmount, null, txHash)
-
-  db.prepare(
-    `INSERT INTO tips (id, article_id, sender_id, recipient_id, amount_luna, note, tx_hash, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 'confirmed')`
-  ).run(uuid(), art.id, tipper.id, art.author_id, tipAmount, 'Great article!', txHash)
-
-  db.prepare('UPDATE articles SET total_tips_luna = total_tips_luna + ? WHERE id = ?').run(tipAmount, art.id)
-  db.prepare('UPDATE users SET tips_sent_count = tips_sent_count + 1 WHERE id = ?').run(tipper.id)
+  await db.collection('demoTransactions').insertOne({
+    id: uuid(), fromAddress: tipper.address, toAddress: author.address, valueLuna: tipAmount,
+    data: null, txHash, status: 'confirmed', createdAt,
+  })
+  await db.collection('tips').insertOne({
+    id: uuid(), articleId: art.id, senderId: tipper.id, recipientId: art.authorId,
+    amountLuna: tipAmount, note: 'Great article!', txHash, status: 'confirmed', createdAt,
+  })
+  await db.collection('articles').updateOne({ id: art.id }, { $inc: { totalTipsLuna: tipAmount } })
+  await db.collection('users').updateOne({ id: tipper.id }, { $inc: { tipsSentCount: 1 } })
 }
 
 console.log('Seed complete!')
@@ -277,6 +291,7 @@ console.log(`  ${validators.length} validators`)
 console.log(`  ${articles.length} articles`)
 console.log('  2 open requests')
 console.log('  1 weekly pool')
-console.log(`  ${articleRows.length} sample tips`)
+console.log(`  ${sampleArticles.length} sample tips`)
 
+await client.close()
 process.exit(0)

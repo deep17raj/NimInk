@@ -1,43 +1,45 @@
 import { Hono } from 'hono'
-import { db } from '../index.js'
+import { getMongoDb } from '../db/mongo.js'
 import { requireAdmin } from '../middleware/auth.js'
 
 export const adminRoutes = new Hono()
 
 adminRoutes.use('*', requireAdmin)
 
-adminRoutes.get('/reports', (c) => {
+adminRoutes.get('/reports', async (c) => {
   const status = c.req.query('status') || 'pending'
-  const rows = db.prepare(
-    `SELECT r.*, u.display_name as reporter_name
-     FROM reports r JOIN users u ON r.reporter_id = u.id
-     WHERE r.status = ?
-     ORDER BY r.created_at DESC LIMIT 50`
-  ).all(status) as any[]
+  const mongo = getMongoDb()
+  if (!mongo) return c.json({ error: 'Database is not configured', code: 'DATABASE_UNAVAILABLE' }, 503)
+
+  const rows = await mongo.collection<any>('reports').find({ status }).sort({ createdAt: -1 }).limit(50).toArray()
+  const reporters = await mongo.collection<any>('users').find({ id: { $in: rows.map((r) => r.reporterId) } }).toArray()
+  const namesById = new Map(reporters.map((u) => [u.id, u.displayName]))
 
   return c.json({
     reports: rows.map((r) => ({
       id: r.id,
-      targetType: r.target_type,
-      targetId: r.target_id,
-      reporterName: r.reporter_name,
+      targetType: r.targetType,
+      targetId: r.targetId,
+      reporterName: namesById.get(r.reporterId) || r.reporterId,
       reason: r.reason,
       details: r.details,
       status: r.status,
-      createdAt: r.created_at,
+      createdAt: new Date(r.createdAt).toISOString(),
     })),
   })
 })
 
 adminRoutes.post('/reports/:id/hide', async (c) => {
   const reportId = c.req.param('id')
-  const report = db.prepare('SELECT * FROM reports WHERE id = ?').get(reportId) as any
+  const mongo = getMongoDb()
+  if (!mongo) return c.json({ error: 'Database is not configured', code: 'DATABASE_UNAVAILABLE' }, 503)
+
+  const report = await mongo.collection<any>('reports').findOne({ id: reportId })
   if (!report) return c.json({ error: 'Not found', code: 'NOT_FOUND' }, 404)
 
-  db.prepare("UPDATE reports SET status = 'hidden' WHERE id = ?").run(reportId)
-
-  if (report.target_type === 'article') {
-    db.prepare("UPDATE articles SET status = 'hidden' WHERE id = ?").run(report.target_id)
+  await mongo.collection('reports').updateOne({ id: reportId }, { $set: { status: 'hidden' } })
+  if (report.targetType === 'article') {
+    await mongo.collection('articles').updateOne({ id: report.targetId }, { $set: { status: 'hidden' } })
   }
 
   return c.json({ ok: true })
@@ -45,35 +47,44 @@ adminRoutes.post('/reports/:id/hide', async (c) => {
 
 adminRoutes.post('/reports/:id/restore', async (c) => {
   const reportId = c.req.param('id')
-  const report = db.prepare('SELECT * FROM reports WHERE id = ?').get(reportId) as any
+  const mongo = getMongoDb()
+  if (!mongo) return c.json({ error: 'Database is not configured', code: 'DATABASE_UNAVAILABLE' }, 503)
+
+  const report = await mongo.collection<any>('reports').findOne({ id: reportId })
   if (!report) return c.json({ error: 'Not found', code: 'NOT_FOUND' }, 404)
 
-  db.prepare("UPDATE reports SET status = 'restored' WHERE id = ?").run(reportId)
-
-  if (report.target_type === 'article') {
-    db.prepare("UPDATE articles SET status = 'published' WHERE id = ?").run(report.target_id)
+  await mongo.collection('reports').updateOne({ id: reportId }, { $set: { status: 'restored' } })
+  if (report.targetType === 'article') {
+    await mongo.collection('articles').updateOne({ id: report.targetId }, { $set: { status: 'published' } })
   }
 
   return c.json({ ok: true })
 })
 
-adminRoutes.get('/flags', (c) => {
+adminRoutes.get('/flags', async (c) => {
   // Fraud cluster detection: same device or IP with many wallets
-  const deviceClusters = db.prepare(
-    `SELECT device_hash, COUNT(DISTINCT user_id) as wallet_count
-     FROM read_sessions
-     WHERE device_hash != '' AND valid = 1
-     GROUP BY device_hash HAVING wallet_count > 3
-     ORDER BY wallet_count DESC LIMIT 20`
-  ).all() as any[]
+  const mongo = getMongoDb()
+  if (!mongo) return c.json({ error: 'Database is not configured', code: 'DATABASE_UNAVAILABLE' }, 503)
 
-  const ipClusters = db.prepare(
-    `SELECT ip_hash, COUNT(DISTINCT user_id) as wallet_count
-     FROM read_sessions
-     WHERE ip_hash != '' AND valid = 1
-     GROUP BY ip_hash HAVING wallet_count > 5
-     ORDER BY wallet_count DESC LIMIT 20`
-  ).all() as any[]
+  const sessions = mongo.collection('readSessions')
+  const [deviceClusters, ipClusters] = await Promise.all([
+    sessions.aggregate([
+      { $match: { valid: true, deviceHash: { $nin: [null, ''] } } },
+      { $group: { _id: '$deviceHash', walletCount: { $addToSet: '$userId' } } },
+      { $project: { device_hash: '$_id', wallet_count: { $size: '$walletCount' } } },
+      { $match: { wallet_count: { $gt: 3 } } },
+      { $sort: { wallet_count: -1 } },
+      { $limit: 20 },
+    ]).toArray(),
+    sessions.aggregate([
+      { $match: { valid: true, ipHash: { $nin: [null, ''] } } },
+      { $group: { _id: '$ipHash', walletCount: { $addToSet: '$userId' } } },
+      { $project: { ip_hash: '$_id', wallet_count: { $size: '$walletCount' } } },
+      { $match: { wallet_count: { $gt: 5 } } },
+      { $sort: { wallet_count: -1 } },
+      { $limit: 20 },
+    ]).toArray(),
+  ])
 
   return c.json({ deviceClusters, ipClusters })
 })

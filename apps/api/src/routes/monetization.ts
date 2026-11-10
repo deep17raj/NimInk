@@ -1,10 +1,10 @@
 import { Hono } from 'hono'
 import { v4 as uuid } from 'uuid'
-import { db } from '../index.js'
 import { getMongoDb } from '../db/mongo.js'
 import { getAuth, requireAuth } from '../middleware/auth.js'
 import { verifyNimiqPayment } from '../services/nimiq.js'
 import { createPaymentNotification } from '../services/notifications.js'
+import { findPaymentIntent, markIntentPaid } from '../services/payment-intents.js'
 
 const SUBSCRIPTION_DAYS = 30
 const MIN_PRICE_LUNA = 1_000 // 0.01 NIM
@@ -15,14 +15,10 @@ export const monetizationRoutes = new Hono()
 monetizationRoutes.get('/settings', requireAuth, async (c) => {
   const auth = getAuth(c)
   const mongo = getMongoDb()
-  if (mongo) {
-    const user = await mongo.collection<any>('users').findOne({ id: auth.userId })
-    if (!user) return c.json({ error: 'Account not found', code: 'NOT_FOUND' }, 404)
-    return c.json({ subscriptionPriceLuna: user.subscriptionPriceLuna || 0 })
-  }
-  const user = db.prepare('SELECT subscription_price_luna FROM users WHERE id = ?').get(auth.userId) as any
+  if (!mongo) return c.json({ error: 'Database is not configured', code: 'DATABASE_UNAVAILABLE' }, 503)
+  const user = await mongo.collection<any>('users').findOne({ id: auth.userId })
   if (!user) return c.json({ error: 'Account not found', code: 'NOT_FOUND' }, 404)
-  return c.json({ subscriptionPriceLuna: user.subscription_price_luna || 0 })
+  return c.json({ subscriptionPriceLuna: user.subscriptionPriceLuna || 0 })
 })
 
 monetizationRoutes.put('/settings', requireAuth, async (c) => {
@@ -34,17 +30,15 @@ monetizationRoutes.put('/settings', requireAuth, async (c) => {
   }
 
   const mongo = getMongoDb()
-  if (mongo) {
-    const result = await mongo.collection('users').updateOne({ id: auth.userId }, { $set: { subscriptionPriceLuna: price } })
-    if (!result.matchedCount) return c.json({ error: 'Account not found', code: 'NOT_FOUND' }, 404)
-  }
-  db.prepare('UPDATE users SET subscription_price_luna = ? WHERE id = ?').run(price, auth.userId)
+  if (!mongo) return c.json({ error: 'Database is not configured', code: 'DATABASE_UNAVAILABLE' }, 503)
+  const result = await mongo.collection('users').updateOne({ id: auth.userId }, { $set: { subscriptionPriceLuna: price } })
+  if (!result.matchedCount) return c.json({ error: 'Account not found', code: 'NOT_FOUND' }, 404)
   return c.json({ subscriptionPriceLuna: price })
 })
 
 monetizationRoutes.post('/articles/:articleId/unlock', requireAuth, async (c) => {
   const auth = getAuth(c)
-  const { txHash } = await c.req.json()
+  const { txHash, intentId } = await c.req.json()
   if (typeof txHash !== 'string' || !txHash) return c.json({ error: 'Missing transaction hash', code: 'INVALID_INPUT' }, 400)
   const mongo = getMongoDb()
   if (!mongo) return c.json({ error: 'MongoDB is required for premium article access', code: 'DATABASE_UNAVAILABLE' }, 503)
@@ -76,7 +70,10 @@ monetizationRoutes.post('/articles/:articleId/unlock', requireAuth, async (c) =>
     return c.json({ error: 'Transaction already used', code: 'DUPLICATE_TX' }, 409)
   }
 
-  const verification = await verifyNimiqPayment(txHash, auth.address, author.address, amountLuna)
+  const intent = await findPaymentIntent(mongo, {
+    intentId, userId: auth.userId, purpose, resourceId: article.id,
+  })
+  const verification = await verifyNimiqPayment(txHash, auth.address, author.address, amountLuna, intent?.reference)
   if (verification.status === 'pending') {
     return c.json({ status: 'pending', reason: verification.reason }, 202)
   }
@@ -86,6 +83,7 @@ monetizationRoutes.post('/articles/:articleId/unlock', requireAuth, async (c) =>
   if (verification.status !== 'confirmed') {
     return c.json({ error: 'Payment failed verification', code: 'VERIFICATION_FAILED', reason: verification.reason }, 400)
   }
+  if (intent) await markIntentPaid(mongo, intent.id, txHash)
 
   let expiresAt: Date | null = null
   if (purpose === 'subscription') {
@@ -111,12 +109,6 @@ monetizationRoutes.post('/articles/:articleId/unlock', requireAuth, async (c) =>
     }
     throw error
   }
-
-  db.prepare(`INSERT OR IGNORE INTO access_payments
-    (id, tx_hash, buyer_id, author_id, article_id, purpose, amount_luna, expires_at, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(payment.id, txHash, auth.userId, article.authorId, payment.articleId, purpose, amountLuna,
-      expiresAt?.toISOString() || null, now.toISOString())
 
   await createPaymentNotification({
     userId: article.authorId, actorId: auth.userId,

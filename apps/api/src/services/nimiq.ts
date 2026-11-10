@@ -13,13 +13,32 @@ interface RpcTransaction {
   executionResult?: boolean
   confirmations?: number
   blockHeight?: number
+  recipientData?: string
+  data?: string
 }
 
 export type NimiqPaymentCheck =
   | { status: 'confirmed' }
   | { status: 'pending'; reason: 'not_found' | 'awaiting_execution' | 'awaiting_confirmations' }
-  | { status: 'invalid'; reason: 'transaction_failed' | 'wrong_hash' | 'wrong_sender' | 'wrong_recipient' | 'amount_too_low' }
+  | { status: 'invalid'; reason: 'transaction_failed' | 'wrong_hash' | 'wrong_sender' | 'wrong_recipient' | 'amount_too_low' | 'wrong_reference' }
   | { status: 'unavailable' }
+
+/**
+ * The RPC returns a transaction's data field hex-encoded. Decode it back to
+ * the UTF-8 payment reference, trimming the trailing NUL padding some
+ * wallets add.
+ */
+function decodeTransactionData(value?: string): string {
+  if (!value || typeof value !== 'string') return ''
+  const hex = value.replace(/^0x/i, '')
+  if (!hex) return ''
+  if (!/^[0-9a-f]+$/i.test(hex) || hex.length % 2 !== 0) return value.trim()
+  try {
+    return Buffer.from(hex, 'hex').toString('utf8').replace(/\0+$/, '').trim()
+  } catch {
+    return ''
+  }
+}
 
 function confirmationsRequired() {
   const configured = Number.parseInt(process.env.NIMIQ_MIN_CONFIRMATIONS || '', 10)
@@ -65,6 +84,7 @@ export async function verifyNimiqPayment(
   fromAddress: string,
   toAddress: string,
   valueLuna: number,
+  expectedReference?: string,
 ): Promise<NimiqPaymentCheck> {
   const rpcUrl = process.env.NIMIQ_RPC_URL || 'https://rpc.nimiqwatch.com'
 
@@ -91,8 +111,21 @@ export async function verifyNimiqPayment(
     if (tx.executionResult === false) return { status: 'invalid', reason: 'transaction_failed' }
     if (tx.executionResult !== true) return { status: 'pending', reason: 'awaiting_execution' }
 
-    const actualFrom = normalizeAddress(tx.fromAddress || tx.from || tx.sender)
-    if (actualFrom !== expectedFrom) return { status: 'invalid', reason: 'wrong_sender' }
+    // Who paid is proven by the payment reference in the transaction's data
+    // field, not by the sender address: Nimiq Pay signs with whichever
+    // account is active in the wallet, which is often not the account the
+    // user signed in with. Only fall back to sender matching when the client
+    // sent no intent (demo mode / older clients).
+    if (expectedReference) {
+      const actualReference = decodeTransactionData(tx.recipientData ?? tx.data)
+      if (actualReference !== expectedReference) {
+        console.error('[verifyNimiqPayment] reference mismatch', { hash, expectedReference, actualReference })
+        return { status: 'invalid', reason: 'wrong_reference' }
+      }
+    } else {
+      const actualFrom = normalizeAddress(tx.fromAddress || tx.from || tx.sender)
+      if (actualFrom !== expectedFrom) return { status: 'invalid', reason: 'wrong_sender' }
+    }
 
     const actualTo = normalizeAddress(tx.toAddress || tx.to || tx.recipient)
     if (actualTo !== expectedTo) return { status: 'invalid', reason: 'wrong_recipient' }

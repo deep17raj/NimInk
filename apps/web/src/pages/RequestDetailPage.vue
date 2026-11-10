@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { api } from '@/composables/useApi'
 import { verifyPaymentUntilSettled } from '@/composables/usePaymentVerification'
+import { createPaymentIntent } from '@/composables/usePaymentIntent'
 import { formatNim, nimToLuna } from '@nimink/shared'
 import { t } from '@/i18n'
 import TopBar from '@/components/TopBar.vue'
@@ -111,17 +112,31 @@ async function payWinner() {
   let txHash = ''
   let recorded = false
   try {
-    const pendingKey = `nimink_pending_reward:${auth.user?.address}:${request.value.id}:${request.value.budgetLuna}`
-    try { txHash = JSON.parse(localStorage.getItem(pendingKey) || 'null')?.txHash || '' } catch {}
-    if (!txHash) {
-      const winnerSub = submissions.value.find(s => s.authorId === request.value.winnerId)
-      if (!winnerSub) throw new Error('Winner article could not be found.')
-      const { article } = await api.get<{ article: any }>(`/api/articles/${winnerSub.articleId}`)
-      const payment = await wallet.sendPayment(article.authorAddress, request.value.budgetLuna)
+    // v2 keys carry the intent id. v1 entries were paid without a payment
+    // reference, so they can never verify — drop them instead of retrying.
+    const pendingKey = `nimink_pending_reward_v2:${request.value.id}:${request.value.budgetLuna}`
+    const legacySuffix = `:${request.value.id}:${request.value.budgetLuna}`
+    try {
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith('nimink_pending_reward:') && key.endsWith(legacySuffix)) localStorage.removeItem(key)
+      }
+    } catch { /* storage unavailable; nothing to clean up */ }
+
+    let pending: { txHash: string; intentId: string } | null = null
+    try { pending = JSON.parse(localStorage.getItem(pendingKey) || 'null') } catch {}
+    let intentId = pending?.intentId || ''
+    if (pending?.txHash && intentId) {
+      txHash = pending.txHash
+    } else {
+      // The server resolves the winner's address and issues the reference
+      // the wallet must attach to the transaction.
+      const intent = await createPaymentIntent('request', request.value.id, request.value.budgetLuna)
+      intentId = intent.intentId
+      const payment = await wallet.sendPayment(intent.recipient, intent.amountLuna, intent.reference)
       txHash = payment.txHash
-      try { localStorage.setItem(pendingKey, JSON.stringify({ txHash })) } catch {}
+      try { localStorage.setItem(pendingKey, JSON.stringify({ txHash, intentId })) } catch {}
     }
-    await verifyPaymentUntilSettled(() => api.post<{ ok?: boolean; status?: string }>(`/api/requests/${request.value.id}/pay`, { txHash }))
+    await verifyPaymentUntilSettled(() => api.post<{ ok?: boolean; status?: string }>(`/api/requests/${request.value.id}/pay`, { txHash, intentId }))
     recorded = true
     try { localStorage.removeItem(pendingKey) } catch {}
 

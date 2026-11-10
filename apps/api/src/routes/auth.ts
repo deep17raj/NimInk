@@ -1,7 +1,6 @@
 import { Hono } from 'hono'
 import { v4 as uuid } from 'uuid'
 import { BufferUtils, Hash, PublicKey, Signature } from '@nimiq/core'
-import { db } from '../index.js'
 import { getMongoDb } from '../db/mongo.js'
 import { createToken, getAuth, requireAuth } from '../middleware/auth.js'
 
@@ -10,13 +9,10 @@ export const authRoutes = new Hono()
 authRoutes.get('/me', requireAuth, async (c) => {
   const auth = getAuth(c)
   const mongo = getMongoDb()
-  if (mongo) {
-    const user = await mongo.collection<any>('users').findOne({ id: auth.userId })
-    if (user) return c.json({ user: { id: user.id, address: user.address, displayName: user.displayName, bio: user.bio || '' } })
-  }
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(auth.userId) as any
+  if (!mongo) return c.json({ error: 'Database is not configured', code: 'DATABASE_UNAVAILABLE' }, 503)
+  const user = await mongo.collection<any>('users').findOne({ id: auth.userId })
   if (!user) return c.json({ error: 'Account not found', code: 'NOT_FOUND' }, 404)
-  return c.json({ user: { id: user.id, address: user.address, displayName: user.display_name, bio: user.bio } })
+  return c.json({ user: { id: user.id, address: user.address, displayName: user.displayName, bio: user.bio || '' } })
 })
 
 authRoutes.post('/nonce', async (c) => {
@@ -73,15 +69,11 @@ authRoutes.post('/verify', async (c) => {
   const userId = uuid()
   await users.updateOne(
     { address },
-    { $setOnInsert: { id: userId, address, displayName: safeName || address.slice(0, 12), bio: '', createdAt: new Date() } },
+    { $setOnInsert: { id: userId, address, displayName: safeName || address.slice(0, 12), bio: '', createdAt: new Date(), validReadCount: 0, tipsSentCount: 0, subscriptionPriceLuna: 0 } },
     { upsert: true },
   )
   const user = await users.findOne({ address })
   if (!user) return c.json({ error: 'Could not create account', code: 'AUTH_FAILED' }, 500)
-
-  // Keep the existing transaction and reading tables compatible while shared content moves to MongoDB.
-  db.prepare('INSERT OR IGNORE INTO users (id, address, display_name, bio) VALUES (?, ?, ?, ?)')
-    .run(user.id, user.address, user.displayName, user.bio || '')
 
   const token = createToken({ userId: user.id, address: user.address })
   return c.json({
@@ -101,26 +93,26 @@ authRoutes.post('/demo', async (c) => {
     return c.json({ error: 'Invalid demo account', code: 'INVALID_INPUT' }, 400)
   }
 
-  let user = db.prepare('SELECT * FROM users WHERE address = ?').get(address) as any
-  if (!user) {
-    const id = uuid()
-    db.prepare('INSERT INTO users (id, address, display_name) VALUES (?, ?, ?)')
-      .run(id, address, typeof displayName === 'string' ? displayName.slice(0, 40) : 'Demo user')
-    user = db.prepare('SELECT * FROM users WHERE id = ?').get(id)
-  }
-
   const mongo = getMongoDb()
-  if (mongo) {
-    await mongo.collection('users').updateOne(
-      { address: user.address },
-      { $setOnInsert: { id: user.id, address: user.address, displayName: user.display_name, bio: '', createdAt: new Date() } },
-      { upsert: true },
-    )
-  }
+  if (!mongo) return c.json({ error: 'Database is not configured', code: 'DATABASE_UNAVAILABLE' }, 503)
+
+  const users = mongo.collection<any>('users')
+  const id = uuid()
+  await users.updateOne(
+    { address },
+    { $setOnInsert: {
+      id, address,
+      displayName: typeof displayName === 'string' && displayName.trim() ? displayName.trim().slice(0, 40) : 'Demo user',
+      bio: '', createdAt: new Date(), validReadCount: 0, tipsSentCount: 0, subscriptionPriceLuna: 0,
+    } },
+    { upsert: true },
+  )
+  const user = await users.findOne({ address })
+  if (!user) return c.json({ error: 'Could not create account', code: 'AUTH_FAILED' }, 500)
 
   const token = createToken({ userId: user.id, address: user.address })
   return c.json({
     token,
-    user: { id: user.id, address: user.address, displayName: user.display_name, bio: user.bio },
+    user: { id: user.id, address: user.address, displayName: user.displayName, bio: user.bio || '' },
   })
 })

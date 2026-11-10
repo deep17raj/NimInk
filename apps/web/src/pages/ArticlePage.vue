@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useWalletStore } from '@/stores/wallet'
 import { api } from '@/composables/useApi'
 import { verifyPaymentUntilSettled } from '@/composables/usePaymentVerification'
+import { createPaymentIntent } from '@/composables/usePaymentIntent'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import { formatNim, TIP_PRESETS_NIM, nimToLuna } from '@nimink/shared'
 import { t } from '@/i18n'
@@ -116,6 +117,20 @@ function retryReadCount() {
   if (articleId && userId) void countArticleRead(articleId, userId)
 }
 
+/**
+ * Removes pre-reference pending payments. Those transactions carry no
+ * payment reference, so the server can never match them to this account —
+ * keeping them would make every retry fail instead of sending a fresh,
+ * verifiable payment.
+ */
+function clearLegacyPending(prefix: string, suffix: string) {
+  try {
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith(prefix) && key.endsWith(suffix)) localStorage.removeItem(key)
+    }
+  } catch { /* storage unavailable; nothing to clean up */ }
+}
+
 async function confirmPremiumPurchase() {
   if (!article.value || premiumPriceLuna.value <= 0) return
   if (!auth.isConnected) {
@@ -126,21 +141,30 @@ async function confirmPremiumPurchase() {
   premiumLoading.value = true
   toast.value.show = false
   const amountLuna = premiumPriceLuna.value
-  const pendingKey = `nimink_pending_access:${article.value.id}:${amountLuna}`
+  const pendingKey = `nimink_pending_access_v2:${article.value.id}:${amountLuna}`
+  clearLegacyPending('nimink_pending_access:', `:${article.value.id}:${amountLuna}`)
   let txHash = ''
+  let intentId = ''
   try {
-    try { txHash = JSON.parse(localStorage.getItem(pendingKey) || 'null')?.txHash || '' } catch {}
-    if (!txHash) {
-      const payment = await wallet.sendPayment(article.value.authorAddress, amountLuna)
+    let pending: { txHash: string; intentId: string } | null = null
+    try { pending = JSON.parse(localStorage.getItem(pendingKey) || 'null') } catch {}
+    if (pending?.txHash && pending.intentId) {
+      txHash = pending.txHash
+      intentId = pending.intentId
+    } else {
+      const purpose = article.value.accessType === 'subscription' ? 'subscription' : 'article'
+      const intent = await createPaymentIntent(purpose, article.value.id, amountLuna)
+      intentId = intent.intentId
+      const payment = await wallet.sendPayment(intent.recipient, intent.amountLuna, intent.reference)
       txHash = payment.txHash
-      try { localStorage.setItem(pendingKey, JSON.stringify({ txHash })) } catch {}
+      try { localStorage.setItem(pendingKey, JSON.stringify({ txHash, intentId })) } catch {}
     }
 
     await verifyPaymentUntilSettled(() => api.post<{
       status?: string
       accessGranted?: boolean
       expiresAt?: string | null
-    }>(`/api/monetization/articles/${article.value.id}/unlock`, { txHash }))
+    }>(`/api/monetization/articles/${article.value.id}/unlock`, { txHash, intentId }))
     showPremiumConfirm.value = false
     const { article: updated } = await api.get<{ article: any }>(`/api/articles/${article.value.id}`)
     article.value = updated
@@ -172,43 +196,34 @@ async function confirmTip() {
   let recorded = false
   try {
     const amountLuna = nimToLuna(tipAmount.value)
-    // Keep this independent of the logged-in address so a sender-mismatch
-    // payment can be retried after signing in with the wallet that paid.
-    const pendingKey = `nimink_pending_tip:${article.value.id}:${amountLuna}`
-    const legacyPendingKey = `nimink_pending_tip:${auth.user?.address}:${article.value.id}:${amountLuna}`
-    let pending: { txHash: string; note: string } | null = null
-    let savedPendingKey = pendingKey
-    try {
-      let saved = localStorage.getItem(pendingKey)
-      if (!saved) {
-        const suffix = `:${article.value.id}:${amountLuna}`
-        const matchingLegacyKey = Object.keys(localStorage).find((key) => key.startsWith('nimink_pending_tip:') && key.endsWith(suffix))
-        if (matchingLegacyKey) {
-          savedPendingKey = matchingLegacyKey
-          saved = localStorage.getItem(matchingLegacyKey)
-        } else {
-          saved = localStorage.getItem(legacyPendingKey)
-        }
-      }
-      pending = JSON.parse(saved || 'null')
-    } catch {}
-    const authorAddress = article.value.authorAddress
-    if (pending?.txHash) {
+    // v2 keys carry the intent id. v1 entries were paid without a payment
+    // reference, so they can never verify — drop them instead of retrying.
+    const pendingKey = `nimink_pending_tip_v2:${article.value.id}:${amountLuna}`
+    clearLegacyPending('nimink_pending_tip:', `:${article.value.id}:${amountLuna}`)
+    let pending: { txHash: string; note: string; intentId: string } | null = null
+    try { pending = JSON.parse(localStorage.getItem(pendingKey) || 'null') } catch {}
+
+    let intentId = pending?.intentId || ''
+    if (pending?.txHash && intentId) {
       txHash = pending.txHash
     } else {
-      const payment = await wallet.sendPayment(authorAddress, amountLuna)
+      // The server issues the reference and the recipient; the wallet writes
+      // the reference into the transaction so the server can match it.
+      const intent = await createPaymentIntent('tip', article.value.id, amountLuna)
+      intentId = intent.intentId
+      const payment = await wallet.sendPayment(intent.recipient, intent.amountLuna, intent.reference)
       txHash = payment.txHash
-      try { localStorage.setItem(pendingKey, JSON.stringify({ txHash, note: tipNote.value })) } catch {}
+      try { localStorage.setItem(pendingKey, JSON.stringify({ txHash, note: tipNote.value, intentId })) } catch {}
     }
     await verifyPaymentUntilSettled(() => api.post<{ tipId?: string; status: string }>('/api/tips', {
       articleId: article.value.id,
       amountLuna,
       note: pending?.txHash ? pending.note : tipNote.value,
       txHash,
+      intentId,
     }))
     recorded = true
     try { localStorage.removeItem(pendingKey) } catch {}
-    try { localStorage.removeItem(savedPendingKey) } catch {}
 
     showPaymentConfirm.value = false
     showTip.value = false

@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { v4 as uuid } from 'uuid'
-import { db } from '../index.js'
+import { getMongoDb } from '../db/mongo.js'
 import { requireAuth, getAuth } from '../middleware/auth.js'
 
 export const reportRoutes = new Hono()
@@ -22,11 +22,14 @@ reportRoutes.post('/', requireAuth, async (c) => {
     return c.json({ error: 'Invalid target type', code: 'INVALID_TARGET' }, 400)
   }
 
+  const mongo = getMongoDb()
+  if (!mongo) return c.json({ error: 'Database is not configured', code: 'DATABASE_UNAVAILABLE' }, 503)
+
   const id = uuid()
-  db.prepare(
-    `INSERT INTO reports (id, target_type, target_id, reporter_id, reason, details)
-     VALUES (?, ?, ?, ?, ?, ?)`
-  ).run(id, targetType, targetId, auth.userId, reason, details || '')
+  await mongo.collection('reports').insertOne({
+    id, targetType, targetId, reporterId: auth.userId, reason,
+    details: details || '', status: 'pending', createdAt: new Date(),
+  })
 
   return c.json({ reportId: id }, 201)
 })
