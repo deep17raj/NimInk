@@ -31,6 +31,17 @@ const readTime = computed(() => Math.max(1, Math.ceil(wordCount.value / 230)))
 const renderedPreview = computed(() => renderMarkdown(body.value))
 
 const editId = computed(() => route.params.id as string | undefined)
+const requestId = computed(() => typeof route.query.requestId === 'string' ? route.query.requestId : '')
+const requestContext = ref<any>(null)
+
+watch(requestId, async (id) => {
+  requestContext.value = null
+  if (!id) return
+  try {
+    const result = await api.get<{ request: any }>(`/api/requests/${id}`)
+    if (requestId.value === id) requestContext.value = result.request
+  } catch { /* Keep the writing context available even if request details cannot load. */ }
+}, { immediate: true })
 
 onMounted(async () => {
   if (editId.value) {
@@ -266,15 +277,44 @@ async function save(status: 'draft' | 'published') {
       priceLuna: accessType.value === 'one_time' ? Math.round(Number(priceNim.value) * 100_000) : 0,
     }
 
+    let savedArticleId = editId.value || ''
     if (editId.value) {
-      await api.put(`/api/articles/${editId.value}`, payload)
+      const result = await api.put<{ article: any }>(`/api/articles/${editId.value}`, payload)
+      savedArticleId = result.article.id
     } else {
-      await api.post('/api/articles', payload)
+      const result = await api.post<{ article: any }>('/api/articles', payload)
+      savedArticleId = result.article.id
     }
 
     try { localStorage.removeItem('nimink_draft') } catch {}
-    toast.value = { show: true, message: status === 'published' ? 'Published!' : 'Draft saved', type: 'success' }
-    setTimeout(() => router.push('/home'), 1000)
+    if (status === 'draft' && requestId.value) {
+      if (!editId.value && savedArticleId) {
+        await router.replace({ path: `/write/${savedArticleId}`, query: { requestId: requestId.value } })
+      }
+      toast.value = { show: true, message: 'Draft saved. Publish it when you are ready to submit it.', type: 'success' }
+      return
+    }
+
+    if (status === 'published' && requestId.value && savedArticleId) {
+      try {
+        await api.post(`/api/requests/${requestId.value}/submit`, { articleId: savedArticleId })
+      } catch (e: any) {
+        toast.value = {
+          show: true,
+          message: `Article published, but could not be submitted: ${e.error || 'request may have closed'}. You can submit it from the request page.`,
+          type: 'error',
+        }
+        setTimeout(() => router.push(`/requests/${requestId.value}`), 2200)
+        return
+      }
+    }
+
+    toast.value = {
+      show: true,
+      message: status === 'published' && requestId.value ? 'Published and submitted to the request!' : status === 'published' ? 'Published!' : 'Draft saved',
+      type: 'success',
+    }
+    setTimeout(() => router.push(requestId.value ? `/requests/${requestId.value}` : '/home'), 1400)
   } catch (e: any) {
     toast.value = { show: true, message: e.error || 'Failed to save', type: 'error' }
   } finally {
@@ -305,6 +345,17 @@ async function save(status: 'draft' | 'published') {
     </div>
 
     <div class="px-5">
+      <div v-if="requestId" class="mx-auto mt-3 flex max-w-xl items-start gap-3 rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-4 dark:border-[#24405c] dark:from-[#142235] dark:to-[#151515]">
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[#1F5D91] shadow-sm dark:bg-[#172638] dark:text-blue-200">
+          <svg class="h-4.5 w-4.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" /></svg>
+        </div>
+        <div class="min-w-0">
+          <p class="text-[13px] font-semibold text-[#1a1a1a] dark:text-white">Writing for this request</p>
+          <p v-if="requestContext?.topic" class="mt-0.5 truncate text-[12px] font-medium text-[#1F5D91] dark:text-blue-200">{{ requestContext.topic }}</p>
+          <p class="mt-1 text-[12px] leading-relaxed text-gray-500 dark:text-gray-400">Publish your article when it is ready to submit. Saving a draft keeps it private.</p>
+        </div>
+      </div>
+
       <div v-if="!showPreview" class="mx-auto max-w-xl">
         <input
           v-model="title"

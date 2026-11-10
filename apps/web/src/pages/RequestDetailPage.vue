@@ -69,7 +69,7 @@ async function loadRequest() {
 
 watch(() => route.params.id, () => { void loadRequest() }, { immediate: true })
 
-async function openSubmitDraft() {
+async function openSubmitExisting() {
   try {
     const { articles } = await api.get<{ articles: any[] }>(`/api/articles/user/${auth.user!.id}`)
     userArticles.value = articles
@@ -79,11 +79,11 @@ async function openSubmitDraft() {
   }
 }
 
-async function submitDraft() {
+async function submitExistingArticle() {
   if (!selectedArticleId.value) return
   try {
     await api.post(`/api/requests/${request.value.id}/submit`, { articleId: selectedArticleId.value })
-    toast.value = { show: true, message: 'Draft submitted!', type: 'success' }
+    toast.value = { show: true, message: 'Article submitted!', type: 'success' }
     showSubmit.value = false
     const data = await api.get<{ request: any; submissions: any[] }>(`/api/requests/${route.params.id}`)
     request.value = data.request
@@ -91,6 +91,11 @@ async function submitDraft() {
   } catch (e: any) {
     toast.value = { show: true, message: e.error || 'Failed to submit', type: 'error' }
   }
+}
+
+function writeNewArticle() {
+  if (!request.value?.id) return
+  router.push({ path: '/write', query: { requestId: request.value.id } })
 }
 
 async function awardSubmission(submissionId: string) {
@@ -201,11 +206,18 @@ async function payWinner() {
         <!-- Actions -->
         <div class="flex gap-3 mb-8">
           <button
-            v-if="!isRequester && request.status === 'open'"
-            @click="openSubmitDraft"
-            class="btn-primary flex-1"
+            v-if="auth.user && !isRequester && request.status === 'open'"
+            @click="openSubmitExisting"
+            class="btn-secondary flex-1 px-2 text-[13px]"
           >
-            {{ t('request.submit') }}
+            Submit existing
+          </button>
+          <button
+            v-if="auth.user && !isRequester && request.status === 'open'"
+            @click="writeNewArticle"
+            class="btn-primary flex-1 px-2 text-[13px]"
+          >
+            Write new article
           </button>
           <button
             v-if="isRequester && request.status === 'awarded'"
@@ -243,9 +255,9 @@ async function payWinner() {
 
   <!-- Submit draft sheet -->
   <BottomSheet :show="showSubmit" @close="showSubmit = false">
-    <h3 class="font-bold text-[17px] text-[#1a1a1a] dark:text-white mb-4">Select an article to submit</h3>
+    <h3 class="font-bold text-[17px] text-[#1a1a1a] dark:text-white mb-4">Submit an existing article</h3>
     <div v-if="userArticles.length === 0" class="text-[14px] text-gray-400 dark:text-gray-500 mb-4">
-      You have no published articles. <button @click="router.push('/write')" class="text-nimiq-blue font-medium">Write one first</button>
+      You have no published articles. <button @click="showSubmit = false; writeNewArticle()" class="text-nimiq-blue font-medium">Write one first</button>
     </div>
     <div v-else class="space-y-2 mb-4">
       <button
@@ -260,7 +272,7 @@ async function payWinner() {
         {{ a.title }}
       </button>
     </div>
-    <button @click="submitDraft" class="btn-primary w-full" :disabled="!selectedArticleId">Submit</button>
+    <button @click="submitExistingArticle" class="btn-primary w-full" :disabled="!selectedArticleId">Submit article</button>
   </BottomSheet>
 
   <!-- Payment confirm -->
