@@ -4,6 +4,7 @@ import { getReputationWeight } from '@nimink/shared'
 import { db } from '../index.js'
 import { getAuth, requireAuth } from '../middleware/auth.js'
 import { getMongoDb } from '../db/mongo.js'
+import { canReadSqlArticle } from '../services/article-access.js'
 
 export const readRoutes = new Hono()
 
@@ -14,12 +15,22 @@ readRoutes.post('/count', requireAuth, async (c) => {
   if (!articleId) return c.json({ error: 'Missing articleId', code: 'INVALID_INPUT' }, 400)
 
   const article = db.prepare(
-    "SELECT id FROM articles WHERE id = ? AND status = 'published'",
-  ).get(articleId) as { id: string } | undefined
+    "SELECT id, author_id, access_type FROM articles WHERE id = ? AND status = 'published'",
+  ).get(articleId) as { id: string; author_id: string; access_type: string } | undefined
   if (!article) return c.json({ error: 'Article not found', code: 'NOT_FOUND' }, 404)
 
   const userExists = db.prepare('SELECT 1 FROM users WHERE id = ?').get(auth.userId)
   if (!userExists) return c.json({ error: 'Account not found', code: 'NOT_FOUND' }, 404)
+
+  // Subscription/one-time (premium) articles only count a read once the
+  // reader has actually paid for access (or is the author). A reader who
+  // only sees the locked preview never reaches this check client-side, but
+  // it's enforced here too since the client can't be trusted.
+  if (!canReadSqlArticle(db, article, auth.userId)) {
+    const current = db.prepare('SELECT verified_read_count FROM articles WHERE id = ?').get(articleId) as
+      { verified_read_count: number } | undefined
+    return c.json({ counted: false, locked: true, verifiedReadCount: current?.verified_read_count ?? 0 })
+  }
 
   const sessionId = uuid()
   const recordRead = db.transaction(() => {

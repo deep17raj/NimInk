@@ -62,9 +62,12 @@ const readCountRequests = new Set<string>()
 const countedReadKeys = new Set<string>()
 
 watch(
-  () => [article.value?.id, auth.user?.id] as const,
-  ([articleId, userId]) => {
-    if (articleId && userId) void countArticleRead(articleId, userId)
+  () => [article.value?.id, auth.user?.id, article.value?.locked] as const,
+  ([articleId, userId, locked]) => {
+    // Premium articles the reader hasn't paid for only ever show the locked
+    // preview — don't count a read until `locked` turns false (i.e. they
+    // bought access) or the article was free all along.
+    if (articleId && userId && !locked) void countArticleRead(articleId, userId)
   },
   { immediate: true },
 )
@@ -88,12 +91,15 @@ async function countArticleRead(articleId: string, userId: string) {
   try {
     const result = await api.post<{
       counted: boolean
-      alreadyRead: boolean
+      alreadyRead?: boolean
+      locked?: boolean
       verifiedReadCount: number
     }>('/api/reads/count', {
       articleId,
     })
-    countedReadKeys.add(key)
+    // Don't latch `locked` responses into countedReadKeys: if the reader
+    // buys access later, `locked` flips to false and this should retry.
+    if (!result.locked) countedReadKeys.add(key)
     if (article.value?.id === articleId && auth.user?.id === userId) {
       article.value.verifiedReadCount = result.verifiedReadCount
     }
