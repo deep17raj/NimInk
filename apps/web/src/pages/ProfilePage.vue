@@ -167,22 +167,51 @@ async function resetDemo() {
       </div>
 
       <div class="mt-8">
-        <p class="section-title mb-3 text-[13px]">Your articles</p>
-        <div v-if="loading" class="space-y-2">
-          <div v-for="i in 2" :key="i" class="py-3"><div class="skeleton h-4 w-3/4 mb-2" /><div class="skeleton h-3 w-1/2" /></div>
+        <div class="mb-3 flex items-center justify-between">
+          <div>
+            <h2 class="text-[16px] font-bold tracking-[-0.01em] text-[#1a1a1a] dark:text-white">Your articles</h2>
+            <p class="mt-0.5 text-[12px] text-gray-400 dark:text-gray-500">Your published stories</p>
+          </div>
+          <span class="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[12px] font-semibold text-gray-500 dark:border-[#333] dark:bg-[#151515] dark:text-gray-300">{{ articles.length }}</span>
         </div>
-        <div v-else-if="articles.length === 0" class="py-8 text-center">
-          <p class="text-[14px] text-gray-400 dark:text-gray-500">No articles yet</p>
-          <button @click="router.push('/write')" class="text-[14px] text-[#0582CA] font-medium mt-1.5 hover:underline">Write your first</button>
+        <div v-if="loading" class="space-y-3">
+          <div v-for="i in 2" :key="i" class="flex items-start gap-3 rounded-2xl border border-gray-100 bg-white p-4 dark:border-[#252525] dark:bg-[#151515]">
+            <div class="skeleton h-11 w-11 rounded-xl" />
+            <div class="min-w-0 flex-1 pt-1">
+              <div class="skeleton mb-3 h-3 w-20" />
+              <div class="skeleton mb-3 h-4 w-4/5" />
+              <div class="skeleton h-3 w-2/3" />
+            </div>
+          </div>
+        </div>
+        <div v-else-if="articles.length === 0" class="rounded-2xl border border-dashed border-gray-200 bg-white px-5 py-8 text-center dark:border-[#333] dark:bg-[#151515]">
+          <div class="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-[#1F5D91] dark:bg-[#172638] dark:text-blue-200">
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 3.75h7l4.25 4.5v11A1.75 1.75 0 0116.5 21h-9A1.75 1.75 0 015.75 19.25v-13.5A2 2 0 017.75 3.75zM14 4v5h4M8.5 13h7M8.5 16.5h7" /></svg>
+          </div>
+          <p class="text-[14px] font-semibold text-[#1a1a1a] dark:text-white">No published articles yet</p>
+          <p class="mt-1 text-[12px] text-gray-500 dark:text-gray-400">Your stories will appear here once published.</p>
+          <button @click="router.push('/write')" class="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#1F2348] to-[#0582CA] px-4 py-2.5 text-[13px] font-semibold text-white shadow-sm transition hover:brightness-110 active:scale-[0.98]">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 5v14m7-7H5" /></svg>
+            Write your first article
+          </button>
         </div>
         <div v-else>
           <div
             v-for="a in articles"
             :key="a.id"
             @click="router.push(`/article/${a.id}`)"
-            class="py-3.5 border-b border-gray-100 dark:border-[#2a2a2a] last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-[#1a1a1a] -mx-5 px-5 transition-colors"
+            class="group relative mb-3 cursor-pointer rounded-2xl border border-gray-100 bg-white p-4 pr-12 text-left shadow-[0_4px_18px_rgba(31,35,72,0.045)] transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-100 hover:shadow-[0_10px_28px_rgba(31,35,72,0.08)] dark:border-[#252525] dark:bg-[#151515] dark:hover:border-[#24405c]"
           >
-            <p class="font-semibold text-[14px] text-[#1a1a1a] dark:text-white">{{ a.title }}</p>
+            <div class="mb-2 flex flex-wrap items-center gap-1.5">
+              <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">Published</span>
+              <span v-if="a.accessType === 'subscription' || a.accessType === 'one_time'" class="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-[#1F5D91] dark:bg-[#172638] dark:text-blue-200">
+                {{ a.accessType === 'subscription' ? 'Subscriber-only' : 'Premium' }}
+              </span>
+            </div>
+            <span class="pointer-events-none absolute right-4 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-gray-300 transition-all group-hover:bg-blue-50 group-hover:text-[#0582CA] dark:text-gray-600 dark:group-hover:bg-[#172638] dark:group-hover:text-blue-200">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+            </span>
+            <p class="line-clamp-2 font-semibold text-[15px] leading-snug text-[#1a1a1a] dark:text-white">{{ a.title }}</p>
             <p class="text-[12px] text-gray-400 dark:text-gray-500 mt-1">{{ a.verifiedReadCount }} reads · {{ formatNim(a.totalTipsLuna) }} NIM tipped</p>
           </div>
         </div>
