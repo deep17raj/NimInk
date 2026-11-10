@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { api, setAuthToken, getAuthToken } from '@/composables/useApi'
-import { getNimiqProvider, resetNimiqProvider, toNimiqError } from '@/composables/useNimiq'
+import { getNimiqProvider, resetNimiqProvider, toNimiqError, withNimiqRetry } from '@/composables/useNimiq'
 
 interface User {
   id: string
@@ -33,7 +33,7 @@ export const useAuthStore = defineStore('auth', () => {
     const { nonce, message } = await api.post<{ nonce: string; message: string }>('/api/auth/nonce')
     let proof: { publicKey: string; signature: string }
     try {
-      proof = await nimiqProvider.sign(message)
+      proof = await withNimiqRetry(() => nimiqProvider.sign(message))
     } catch (error) {
       throw toNimiqError(error)
     }

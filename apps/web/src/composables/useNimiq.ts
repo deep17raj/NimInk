@@ -8,8 +8,9 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 function isProviderNotReady(error: unknown) {
   const providerError = NimiqProviderError.from(error)
   const message = providerError?.message || (error instanceof Error ? error.message : String(error))
-  return /not ready|not injected|not initialized|not initialised/i.test(message)
+  return /not ready|not injected|not initialized|not initialised|network/i.test(message)
     || providerError?.type === 'UNKNOWN_ERROR'
+    || providerError?.type === 'NETWORK_ERROR'
 }
 
 export function toNimiqError(error: unknown): Error & { code?: string } {
@@ -19,12 +20,14 @@ export function toNimiqError(error: unknown): Error & { code?: string } {
   if (providerError?.type === 'PERMISSION_DENIED') {
     return Object.assign(new Error('Sign-in or payment was cancelled in Nimiq Pay.'), { code: providerError.type })
   }
-  if (/not ready|not injected|not initialized|not initialised/i.test(message)) {
-    return Object.assign(new Error('Nimiq Pay is still starting. Reopen NimInk from Nimiq Pay, wait a moment, then try again.'), { code: 'NIMIQ_APP_NOT_READY' })
+  if (providerError?.type === 'NETWORK_ERROR' || /not ready|not injected|not initialized|not initialised|network/i.test(message)) {
+    return Object.assign(new Error('Nimiq Pay is still establishing its network connection. Wait a few seconds and try again.'), { code: 'NIMIQ_APP_NOT_READY' })
   }
 
   return Object.assign(new Error(message || 'Nimiq Pay could not complete the wallet request.'), { code: providerError?.type })
 }
+
+const READY_ATTEMPTS = 10
 
 export async function getNimiqProvider(): Promise<NimiqProvider> {
   if (!nimiqProvider && !providerPromise) {
@@ -40,19 +43,38 @@ export async function getNimiqProvider(): Promise<NimiqProvider> {
   }
 
   const provider = nimiqProvider || await providerPromise!
-  for (let attempt = 0; attempt < 6; attempt++) {
+  for (let attempt = 0; attempt < READY_ATTEMPTS; attempt++) {
     try {
-      // This read-only call confirms the injected bridge can answer before
-      // asking Nimiq Pay to show a sign or payment approval dialog.
+      // This read-only call confirms the host wallet has established
+      // network consensus before asking it to show a sign/payment dialog.
+      // `false` is a valid response meaning "not ready yet" — it must be
+      // retried, not treated as success just because the call didn't throw.
       const status = await provider.isConsensusEstablished()
+      if (status === true) return provider
       if (typeof status !== 'boolean') throw new Error('Nimiq app is not ready yet.')
-      return provider
     } catch (error) {
-      if (!isProviderNotReady(error) || attempt === 5) throw toNimiqError(error)
-      await delay(350 + 400 * attempt)
+      if (!isProviderNotReady(error) || attempt === READY_ATTEMPTS - 1) throw toNimiqError(error)
+    }
+    await delay(350 + 400 * attempt)
+  }
+  throw toNimiqError(new Error('Nimiq network is not ready.'))
+}
+
+/**
+ * Retries a wallet call (sign / send payment / stake) if it fails because
+ * Nimiq Pay's network connection dropped or hadn't stabilized, instead of
+ * surfacing a hard failure for what is usually a transient state.
+ */
+export async function withNimiqRetry<T>(fn: () => Promise<T>, attempts = 4): Promise<T> {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      return await fn()
+    } catch (error) {
+      if (!isProviderNotReady(error) || attempt === attempts - 1) throw toNimiqError(error)
+      await delay(400 + 400 * attempt)
     }
   }
-  return provider
+  throw new Error('unreachable')
 }
 
 export function resetNimiqProvider() {

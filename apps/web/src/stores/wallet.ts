@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { api } from '@/composables/useApi'
 import { useAuthStore } from './auth'
 import { getHostNetwork } from '@nimiq/mini-app-sdk'
-import { getNimiqProvider, toNimiqError } from '@/composables/useNimiq'
+import { getNimiqProvider, toNimiqError, withNimiqRetry } from '@/composables/useNimiq'
 
 export const useWalletStore = defineStore('wallet', () => {
   const balance = ref(0)
@@ -37,7 +37,7 @@ export const useWalletStore = defineStore('wallet', () => {
     try {
       if (!auth.isDemo) {
         const nimiq = await getNimiqProvider()
-        balance.value = await nimiq.getBalance(auth.user.address)
+        balance.value = await withNimiqRetry(() => nimiq.getBalance(auth.user!.address))
         return
       }
       const { balanceLuna } = await api.get<{ balanceLuna: number }>(
@@ -69,7 +69,7 @@ export const useWalletStore = defineStore('wallet', () => {
     await ensurePaymentNetwork()
     let walletAccounts: string[]
     try {
-      walletAccounts = await nimiq.listAccounts()
+      walletAccounts = await withNimiqRetry(() => nimiq.listAccounts())
     } catch (error) {
       throw toNimiqError(error)
     }
@@ -78,6 +78,10 @@ export const useWalletStore = defineStore('wallet', () => {
     if (!authenticatedAddress || !walletAccounts.some((address) => normalizeAddress(address) === normalizeAddress(authenticatedAddress))) {
       throw new Error('The account you used to sign in to NimInk is not available to this mini app. Select/share that account in Nimiq Pay, then sign in again and retry. No payment was sent.')
     }
+    // Not wrapped in withNimiqRetry: a retry here risks broadcasting the
+    // payment twice if the first attempt actually went through but the
+    // response was lost. getNimiqProvider() above already confirmed
+    // consensus before we got here.
     let txHash: string
     try {
       txHash = data
