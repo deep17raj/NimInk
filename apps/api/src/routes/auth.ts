@@ -15,6 +15,21 @@ authRoutes.get('/me', requireAuth, async (c) => {
   return c.json({ user: { id: user.id, address: user.address, displayName: user.displayName, bio: user.bio || '' } })
 })
 
+authRoutes.put('/me', requireAuth, async (c) => {
+  const auth = getAuth(c)
+  const mongo = getMongoDb()
+  if (!mongo) return c.json({ error: 'Database is not configured', code: 'DATABASE_UNAVAILABLE' }, 503)
+
+  const { displayName } = await c.req.json()
+  const safeName = typeof displayName === 'string' ? displayName.trim().slice(0, 40) : ''
+  if (!safeName) return c.json({ error: 'Name cannot be empty', code: 'INVALID_INPUT' }, 400)
+
+  await mongo.collection<any>('users').updateOne({ id: auth.userId }, { $set: { displayName: safeName } })
+  const user = await mongo.collection<any>('users').findOne({ id: auth.userId })
+  if (!user) return c.json({ error: 'Account not found', code: 'NOT_FOUND' }, 404)
+  return c.json({ user: { id: user.id, address: user.address, displayName: user.displayName, bio: user.bio || '' } })
+})
+
 authRoutes.post('/nonce', async (c) => {
   const mongo = getMongoDb()
   if (!mongo) return c.json({ error: 'Shared MongoDB is not configured', code: 'DATABASE_UNAVAILABLE' }, 503)

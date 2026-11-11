@@ -36,6 +36,9 @@ const toast = ref({ show: false, message: '', type: 'success' as 'success' | 'er
 const showReport = ref(false)
 const reportReason = ref('')
 
+const quizSelected = ref<number | null>(null)
+watch(() => article.value?.id, () => { quizSelected.value = null })
+
 const renderedBody = computed(() => article.value ? renderMarkdown(article.value.body) : '')
 const isOwnArticle = computed(() => article.value?.authorId === auth.user?.id)
 const premiumPriceLuna = computed(() => article.value?.accessType === 'subscription'
@@ -346,6 +349,38 @@ async function submitReport() {
         <span v-for="tag in article.tags" :key="tag" class="px-3 py-1.5 rounded-full text-[12px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-[#2a2a2a]">
           {{ tag }}
         </span>
+      </div>
+
+      <!-- Quiz -->
+      <div v-if="article.quizJson && !article.locked" class="mt-8 rounded-2xl border border-gray-100 dark:border-[#2a2a2a] bg-gray-50 dark:bg-[#161616] p-5">
+        <p class="text-[12px] font-semibold uppercase tracking-wide text-[#0582CA] mb-2">{{ t('article.quiz.title') }}</p>
+        <p class="text-[15px] font-semibold text-[#1a1a1a] dark:text-white mb-3">{{ article.quizJson.question }}</p>
+        <div class="space-y-2">
+          <button
+            v-for="(opt, i) in article.quizJson.options"
+            :key="i"
+            type="button"
+            :disabled="quizSelected !== null"
+            @click="quizSelected = i"
+            class="w-full text-left px-4 py-2.5 rounded-xl border text-[14px] transition-colors"
+            :class="quizSelected === null
+              ? 'border-gray-200 dark:border-[#333] hover:bg-white dark:hover:bg-[#1f1f1f]'
+              : i === article.quizJson.correctIndex
+                ? 'border-green-400 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300 font-medium'
+                : i === quizSelected
+                  ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300'
+                  : 'border-gray-200 dark:border-[#333] opacity-60'"
+          >
+            {{ opt }}
+          </button>
+        </div>
+        <p
+          v-if="quizSelected !== null"
+          class="mt-3 text-[13px] font-medium"
+          :class="quizSelected === article.quizJson.correctIndex ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'"
+        >
+          {{ quizSelected === article.quizJson.correctIndex ? t('article.quiz.pass') : t('article.quiz.fail') }}
+        </p>
       </div>
 
       <!-- Stats -->

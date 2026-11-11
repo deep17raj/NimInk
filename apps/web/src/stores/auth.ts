@@ -47,6 +47,11 @@ export const useAuthStore = defineStore('auth', () => {
     return signedInUser
   }
 
+  async function updateDisplayName(displayName: string) {
+    const { user: updated } = await api.put<{ user: User }>('/api/auth/me', { displayName })
+    user.value = updated
+  }
+
   function disconnect() {
     resetNimiqProvider()
     user.value = null
@@ -80,5 +85,5 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  return { user, isConnected, walletMode, isDemo, connectDemo, connectNimiq, disconnect, tryRestore }
+  return { user, isConnected, walletMode, isDemo, connectDemo, connectNimiq, updateDisplayName, disconnect, tryRestore }
 })

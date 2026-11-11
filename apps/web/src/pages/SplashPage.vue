@@ -14,6 +14,8 @@ const wallet = useWalletStore()
 const showOnboarding = ref(false)
 const onboardingStep = ref(0)
 const showAccountPicker = ref(false)
+const showNamePrompt = ref(false)
+const nameInput = ref('')
 const demoAccounts = ref<{ address: string; displayName: string; balanceLuna: number }[]>([])
 const loading = ref(false)
 const newAccountName = ref('')
@@ -44,10 +46,15 @@ async function startConnect() {
   if (auth.isDemo) return openDemoConnect()
   loading.value = true
   try {
-    await auth.connectNimiq()
+    const signedInUser = await auth.connectNimiq()
     await wallet.fetchBalance()
-    if (!localStorage.getItem('nimink_onboarded')) showOnboarding.value = true
-    else router.push('/home')
+    if (signedInUser.displayName === signedInUser.address.slice(0, 12)) {
+      showNamePrompt.value = true
+    } else if (!localStorage.getItem('nimink_onboarded')) {
+      showOnboarding.value = true
+    } else {
+      router.push('/home')
+    }
   } catch (e: any) {
     if (e?.code === 'PERMISSION_DENIED' || e?.type === 'PERMISSION_DENIED') {
       connectError.value = 'Sign-in was cancelled in Nimiq Pay. Tap Connect to try again.'
@@ -100,6 +107,21 @@ async function createNewAccount() {
   }
 }
 
+async function confirmName() {
+  if (!nameInput.value.trim()) return
+  loading.value = true
+  try {
+    await auth.updateDisplayName(nameInput.value.trim())
+    showNamePrompt.value = false
+    if (!localStorage.getItem('nimink_onboarded')) showOnboarding.value = true
+    else router.push('/home')
+  } catch (e) {
+    console.error(e)
+  } finally {
+    loading.value = false
+  }
+}
+
 function finishOnboarding() {
   try { localStorage.setItem('nimink_onboarded', '1') } catch {}
   router.push('/home')
@@ -128,7 +150,7 @@ const onboardingSteps = [
 
 <template>
   <!-- Splash -->
-  <div v-if="!showOnboarding && !showAccountPicker" class="flex flex-col items-center justify-center min-h-[100dvh] px-6 text-center">
+  <div v-if="!showOnboarding && !showAccountPicker && !showNamePrompt" class="flex flex-col items-center justify-center min-h-[100dvh] px-6 text-center">
     <div class="mb-12">
       <div class="w-16 h-16 rounded-2xl bg-[#1a1a1a] dark:bg-white flex items-center justify-center mx-auto mb-6">
         <span class="text-2xl font-bold text-white dark:text-[#1a1a1a]">N</span>
@@ -147,6 +169,27 @@ const onboardingSteps = [
     <p v-else class="mt-4 max-w-[320px] text-[12px] text-gray-400 dark:text-gray-500">
       {{ auth.isDemo ? 'Demo mode — no real money involved' : 'Your keys stay in Nimiq Pay. Sign-in confirms your wallet address.' }}
     </p>
+  </div>
+
+  <!-- Name prompt -->
+  <div v-if="showNamePrompt" class="flex flex-col items-center justify-center min-h-[100dvh] px-6 text-center">
+    <div class="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-[#2a2a2a] flex items-center justify-center mx-auto mb-6">
+      <svg class="w-7 h-7 text-[#1a1a1a] dark:text-white" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+    </div>
+    <h2 class="text-[22px] font-bold mb-2 text-[#1a1a1a] dark:text-white">What should we call you?</h2>
+    <p class="text-gray-400 dark:text-gray-500 mb-8 max-w-[280px] text-[14px] leading-relaxed">
+      This name is shown on your articles and comments instead of your wallet address.
+    </p>
+    <input
+      v-model="nameInput"
+      class="input w-full max-w-[320px] text-[15px] mb-4"
+      placeholder="Your name or username"
+      maxlength="40"
+      @keyup.enter="confirmName"
+    />
+    <button @click="confirmName" class="btn-primary w-full max-w-[320px] text-[15px] py-3.5" :disabled="loading || !nameInput.trim()">
+      {{ loading ? t('common.loading') : 'Continue' }}
+    </button>
   </div>
 
   <!-- Account Picker -->

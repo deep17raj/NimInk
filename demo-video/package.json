@@ -1,0 +1,23 @@
+{
+  "name": "nimink-demo-video",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts NimInkDemo out/nimink-demo.mp4",
+    "still": "remotion still src/index.ts NimInkDemo",
+    "vo": "uvx --python 3.12 --from mcp-kokoro-tts python scripts/tts.py"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.290",
+    "@remotion/google-fonts": "4.0.290",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.290"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.12",
+    "typescript": "5.6.3"
+  }
+}

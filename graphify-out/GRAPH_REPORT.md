@@ -1,17 +1,17 @@
 # Graph Report - NimInk  (2026-11-11)
 
 ## Corpus Check
-- 85 files · ~38,644 words
+- 106 files · ~56,623 words
 - Verdict: corpus is large enough that graph structure adds value.
-- Unclassified: 8 file(s) not represented in the graph (top: (none) 5, .example 1, .css 1)
+- Unclassified: 10 file(s) not represented in the graph (top: (none) 6, .css 2, .example 1)
 
 ## Summary
-- 719 nodes · 1189 edges · 53 communities (34 shown, 19 thin omitted)
-- Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 26 edges (avg confidence: 0.85)
+- 915 nodes · 1797 edges · 58 communities (38 shown, 20 thin omitted)
+- Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 44 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `022ca909`
+- Built from commit: `49b3ba95`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -19,16 +19,16 @@
 - i18n/index.ts
 - api/src/index.ts
 - Web Build & Dependencies
-- Database, Config & Scoring
+- config.ts
 - Article Reading Page
-- Root Workspace Config
+- package.json
 - Shared TypeScript Types
 - API Package Config
 - Request Detail Page
 - Admin & Dev Tools
 - WritePage.vue
-- Create Request & Luna Utils
-- ProfilePage.vue
+- Act2.tsx
+- stores/auth.ts
 - Staking Page
 - Base TypeScript Config
 - Shared Package Config
@@ -41,7 +41,7 @@
 - RequestsPage.vue
 - Auth & Signature Flow
 - Read Validation & Pool
-- AuthorPage.vue
+- CreateRequestPage.vue
 - Staking & Earnings Plan
 - Web Entry & Branding
 - Monorepo Scaffold
@@ -57,26 +57,31 @@
 - Environment Variables
 - Environment Security
 - HomePage.vue
-- router.ts
+- demo-video/package.json
 - services
 - verifyPaymentUntilSettled
 - EarningsPage.vue
 - usePaymentIntent.ts
-- ArticleCard.vue
-- vue
-- PaymentConfirm.vue
+- ProfilePage.vue
+- music.py
+- compilerOptions
+- scripts
+- scoring.ts
+- NotificationsPage.vue
+- luna.ts
+- allowScripts
 
 ## God Nodes (most connected - your core abstractions)
 1. `vue` - 25 edges
-2. `useAuthStore` - 20 edges
-3. `t()` - 19 edges
-4. `getMongoDb()` - 19 edges
-5. `api` - 19 edges
-6. `hono` - 18 edges
-7. `vue-router` - 16 edges
-8. `requireAuth()` - 15 edges
-9. `uuid` - 15 edges
-10. `getAuth()` - 13 edges
+2. `Shell()` - 24 edges
+3. `S14Body()` - 23 edges
+4. `useBeat()` - 22 edges
+5. `useSpr()` - 22 edges
+6. `Ic()` - 22 edges
+7. `Reveal()` - 22 edges
+8. `useAuthStore` - 20 edges
+9. `t()` - 19 edges
+10. `getMongoDb()` - 19 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `Web App Entry HTML` --references--> `NimInk Favicon`  [EXTRACTED]
@@ -98,59 +103,59 @@
 - **Read Validation Anti-Sybil System** — decisions_read_validation_server_driven, plan_read_validation_scoring, plan_weekly_pool, security_fake_reads_sybil, plan_phase_4_read_validation_pool [EXTRACTED 0.95]
 - **Wallet Adapter Abstraction Pattern** — plan_wallet_adapter_interface, plan_demo_wallet_adapter, plan_nimiq_pay_wallet_adapter, security_demo_real_mode_confusion, decisions_demo_ledger_server_side [EXTRACTED 0.95]
 
-## Communities (53 total, 19 thin omitted)
+## Communities (58 total, 20 thin omitted)
 
 ### Community 0 - "i18n/index.ts"
-Cohesion: 0.20
-Nodes (7): active, route, router, tabs, messages, state, t()
+Cohesion: 0.11
+Nodes (13): active, route, router, tabs, auth, emit, props, i18n (+5 more)
 
 ### Community 1 - "api/src/index.ts"
-Cohesion: 0.07
-Nodes (44): mongodb@^6.21.0, connectMongo(), getMongoDb(), getUploadsBucket(), app, __dirname, distPath, mongoRetry (+36 more)
+Cohesion: 0.06
+Nodes (52): @nimiq/core@^2.7.0, connectMongo(), getMongoDb(), getUploadsBucket(), app, __dirname, distPath, mongoRetry (+44 more)
 
 ### Community 2 - "Web Build & Dependencies"
 Cohesion: 0.06
 Nodes (40): dependencies, dompurify@^3.2.0, markdown-it@^14.1.0, @nimink/shared@*, @nimiq/mini-app-sdk@^0.2.5, pinia@^2.2.0, vue@^3.5.0, vue-router@^4.4.0 (+32 more)
 
-### Community 3 - "Database, Config & Scoring"
-Cohesion: 0.11
-Nodes (26): APP_NAME, APP_TAGLINE, DEFAULT_POOL_SIZE_LUNA, DEMO_FAUCET_AMOUNT_LUNA, DEMO_FAUCET_DAILY_LIMIT, DEMO_INITIAL_BALANCE_LUNA, LUNA_PER_NIM, MIN_STAKE_LUNA (+18 more)
+### Community 3 - "config.ts"
+Cohesion: 0.15
+Nodes (12): APP_NAME, APP_TAGLINE, DEFAULT_POOL_SIZE_LUNA, DEMO_FAUCET_AMOUNT_LUNA, DEMO_FAUCET_DAILY_LIMIT, DEMO_INITIAL_BALANCE_LUNA, LUNA_PER_NIM, MIN_STAKE_LUNA (+4 more)
 
 ### Community 4 - "Article Reading Page"
-Cohesion: 0.07
-Nodes (27): article, auth, bookmarked, countArticleRead(), countedReadKeys, error, initials, isOwnArticle (+19 more)
+Cohesion: 0.06
+Nodes (28): article, auth, bookmarked, countArticleRead(), countedReadKeys, error, initials, isOwnArticle (+20 more)
 
-### Community 5 - "Root Workspace Config"
-Cohesion: 0.07
-Nodes (27): allowScripts, esbuild@0.25.12, esbuild@0.28.2, vue-demi@0.14.10, description, devDependencies, vitest@^5.1.0, engines (+19 more)
+### Community 5 - "package.json"
+Cohesion: 0.17
+Nodes (11): description, devDependencies, vitest@^5.1.0, engines, node, license, name, private (+3 more)
 
 ### Community 6 - "Shared TypeScript Types"
 Cohesion: 0.07
 Nodes (18): ApiError, Article, ArticleRequest, DemoStake, DemoTransaction, EarningsSummary, PaymentVerifier, Payout (+10 more)
 
 ### Community 7 - "API Package Config"
-Cohesion: 0.06
-Nodes (40): dependencies, hono@^4.6.0, @hono/node-server@^1.13.0, jsonwebtoken@^9.0.2, @nimink/shared@*, @nimiq/core@^2.7.0, uuid@^10.0.0, devDependencies (+32 more)
+Cohesion: 0.08
+Nodes (32): dependencies, hono@^4.6.0, @hono/node-server@^1.13.0, jsonwebtoken@^9.0.2, mongodb@^6.21.0, @nimink/shared@*, uuid@^10.0.0, devDependencies (+24 more)
 
 ### Community 8 - "Request Detail Page"
 Cohesion: 0.09
 Nodes (16): auth, isRequester, loadError, loading, payLoading, reputation, request, route (+8 more)
 
 ### Community 9 - "Admin & Dev Tools"
-Cohesion: 0.12
-Nodes (8): emit, props, flags, loading, reports, toast, timeOffset, toast
+Cohesion: 0.09
+Nodes (14): ImportMeta, ImportMetaEnv, *.vue, Window, emit, props, api, flags (+6 more)
 
 ### Community 10 - "WritePage.vue"
 Cohesion: 0.07
 Nodes (32): renderMarkdown(), renderedBody, accessType, auth, body, bodyEditor, draftStatus, editId (+24 more)
 
-### Community 11 - "Create Request & Luna Utils"
-Cohesion: 0.18
-Nodes (8): budgetNim, deadline, description, minDate, router, saving, toast, topic
+### Community 11 - "Act2.tsx"
+Cohesion: 0.06
+Nodes (113): inter, lora, loraItalic, SANS, SERIF, Root(), AlexIllustration(), Card4() (+105 more)
 
-### Community 12 - "ProfilePage.vue"
-Cohesion: 0.07
-Nodes (40): auth, route, router, showNav, unreadCount, wallet, api, getAuthToken() (+32 more)
+### Community 12 - "stores/auth.ts"
+Cohesion: 0.18
+Nodes (20): auth, route, router, showNav, unreadCount, wallet, getAuthToken(), request() (+12 more)
 
 ### Community 13 - "Staking Page"
 Cohesion: 0.10
@@ -165,12 +170,12 @@ Cohesion: 0.15
 Nodes (13): devDependencies, typescript@^5.6.0, exports, typescript, main, name, private, scripts (+5 more)
 
 ### Community 16 - "seed.ts"
-Cohesion: 0.08
-Nodes (18): dotenv@^16.4.0, accounts, articleIds, articles, client, db, __dirname, now (+10 more)
+Cohesion: 0.07
+Nodes (21): dotenv@^16.4.0, accounts, articleIds, articles, client, db, __dirname, now (+13 more)
 
 ### Community 17 - "SplashPage.vue"
-Cohesion: 0.12
-Nodes (18): auth, connectError, createNewAccount(), demoAccounts, finishOnboarding(), loading, newAccountName, nextStep() (+10 more)
+Cohesion: 0.10
+Nodes (20): auth, connectError, createNewAccount(), demoAccounts, finishOnboarding(), loading, nameInput, newAccountName (+12 more)
 
 ### Community 18 - "Web TypeScript Config"
 Cohesion: 0.17
@@ -200,17 +205,17 @@ Nodes (3): Auth Flow: Nonce-Sign-Verify-Session, Switching from Demo to Real Mod
 Cohesion: 0.60
 Nodes (4): Phase 4: Read Validation and Weekly Pool, Read Validation Scoring, Weekly Pool Distribution, Threat: Fake Reads (Sybil Attack)
 
-### Community 25 - "AuthorPage.vue"
-Cohesion: 0.18
-Nodes (10): props, router, articles, authorName, initials, loading, route, router (+2 more)
+### Community 25 - "CreateRequestPage.vue"
+Cohesion: 0.09
+Nodes (19): props, router, articles, authorName, initials, loading, route, router (+11 more)
 
 ### Community 44 - "HomePage.vue"
-Cohesion: 0.15
-Nodes (12): activeTab, articles, auth, fetchArticles(), fetchArticlesOnFocus(), filteredArticles, initials, loading (+4 more)
+Cohesion: 0.10
+Nodes (18): auth, initials, isWrittenByMe, preview, props, timeAgo, activeTab, articles (+10 more)
 
-### Community 45 - "router.ts"
-Cohesion: 0.24
-Nodes (4): i18n, app, router, routes
+### Community 45 - "demo-video/package.json"
+Cohesion: 0.10
+Nodes (23): dependencies, react@18.3.1, react-dom@18.3.1, remotion@4.0.290, @remotion/cli@4.0.290, @remotion/google-fonts@4.0.290, devDependencies, @types/react@18.3.12 (+15 more)
 
 ### Community 46 - "services"
 Cohesion: 0.15
@@ -224,37 +229,53 @@ Nodes (8): createPaymentIntent(), delay(), VerifiablePayment, verifyPaymentUntil
 Cohesion: 0.18
 Nodes (8): EarningsSummary, error, loading, router, summary, Transaction, transactions, wallet
 
-### Community 50 - "ArticleCard.vue"
-Cohesion: 0.25
-Nodes (6): auth, initials, isWrittenByMe, preview, props, timeAgo
+### Community 50 - "ProfilePage.vue"
+Cohesion: 0.12
+Nodes (13): getLocale(), setLocale(), articles, auth, initials, loading, router, savingSubscription (+5 more)
 
-### Community 51 - "vue"
+### Community 52 - "compilerOptions"
+Cohesion: 0.17
+Nodes (11): compilerOptions, esModuleInterop, jsx, module, moduleResolution, noEmit, resolveJsonModule, skipLibCheck (+3 more)
+
+### Community 53 - "scripts"
+Cohesion: 0.17
+Nodes (12): scripts, build, dev, dev:api, dev:web, lint, seed, seed:samples (+4 more)
+
+### Community 54 - "scoring.ts"
+Cohesion: 0.35
+Nodes (9): READ_VALIDATION, READING_WPM, calculateArticleScore(), distributePool(), estimateReadTimeMinutes(), estimateReadTimeSeconds(), getReputationWeight(), minimumReadTimeSeconds() (+1 more)
+
+### Community 55 - "NotificationsPage.vue"
 Cohesion: 0.33
-Nodes (5): ImportMeta, ImportMetaEnv, *.vue, Window, vue
+Nodes (6): amount(), error, loading, message(), Notification, notifications
 
-### Community 52 - "PaymentConfirm.vue"
+### Community 56 - "luna.ts"
+Cohesion: 0.67
+Nodes (5): formatNim(), formatNimDisplay(), lunaToNim(), nimToLuna(), parseNimInput()
+
+### Community 57 - "allowScripts"
 Cohesion: 0.50
-Nodes (3): auth, emit, props
+Nodes (4): allowScripts, esbuild@0.25.12, esbuild@0.28.2, vue-demi@0.14.10
 
 ## Knowledge Gaps
 - **22 isolated node(s):** `../../tsconfig.base.json`, `../../tsconfig.base.json`, `../../tsconfig.base.json`, `DemoWalletAdapter`, `NimiqPayWalletAdapter` (+17 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 433 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **19 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 488 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **20 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `vue` connect `vue` to `i18n/index.ts`, `Web Build & Dependencies`, `Article Reading Page`, `Request Detail Page`, `Admin & Dev Tools`, `WritePage.vue`, `Create Request & Luna Utils`, `ProfilePage.vue`, `router.ts`, `HomePage.vue`, `Staking Page`, `EarningsPage.vue`, `SplashPage.vue`, `ArticleCard.vue`, `RequestsPage.vue`, `AuthorPage.vue`?**
-  _High betweenness centrality (0.083) - this node is a cross-community bridge._
+- **Why does `vue` connect `Admin & Dev Tools` to `i18n/index.ts`, `Web Build & Dependencies`, `Article Reading Page`, `Request Detail Page`, `WritePage.vue`, `stores/auth.ts`, `HomePage.vue`, `Staking Page`, `EarningsPage.vue`, `SplashPage.vue`, `ProfilePage.vue`, `RequestsPage.vue`, `NotificationsPage.vue`, `CreateRequestPage.vue`?**
+  _High betweenness centrality (0.052) - this node is a cross-community bridge._
 - **What connects `../../tsconfig.base.json`, `../../tsconfig.base.json`, `../../tsconfig.base.json` to the rest of the system?**
   _22 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `i18n/index.ts` be split into smaller, more focused modules?**
+  _Cohesion score 0.11428571428571428 - nodes in this community are weakly interconnected._
+- **Why does `vitest` connect `package.json` to `luna.ts`, `scoring.ts`?**
+  _High betweenness centrality (0.039) - this node is a cross-community bridge._
 - **Should `api/src/index.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.07392607392607392 - nodes in this community are weakly interconnected._
-- **Why does `vitest` connect `Root Workspace Config` to `Database, Config & Scoring`?**
-  _High betweenness centrality (0.062) - this node is a cross-community bridge._
+  _Cohesion score 0.06332992849846783 - nodes in this community are weakly interconnected._
+- **Why does `vue-router` connect `CreateRequestPage.vue` to `i18n/index.ts`, `Web Build & Dependencies`, `Article Reading Page`, `Request Detail Page`, `WritePage.vue`, `stores/auth.ts`, `HomePage.vue`, `EarningsPage.vue`, `SplashPage.vue`, `ProfilePage.vue`, `RequestsPage.vue`?**
+  _High betweenness centrality (0.028) - this node is a cross-community bridge._
 - **Should `Web Build & Dependencies` be split into smaller, more focused modules?**
   _Cohesion score 0.0627177700348432 - nodes in this community are weakly interconnected._
-- **Why does `vue-router` connect `AuthorPage.vue` to `i18n/index.ts`, `Web Build & Dependencies`, `Article Reading Page`, `Request Detail Page`, `WritePage.vue`, `Create Request & Luna Utils`, `ProfilePage.vue`, `HomePage.vue`, `router.ts`, `EarningsPage.vue`, `SplashPage.vue`, `RequestsPage.vue`?**
-  _High betweenness centrality (0.044) - this node is a cross-community bridge._
-- **Should `Database, Config & Scoring` be split into smaller, more focused modules?**
-  _Cohesion score 0.10752688172043011 - nodes in this community are weakly interconnected._
