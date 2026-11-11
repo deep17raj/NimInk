@@ -9,6 +9,7 @@
     "start": "node dist/index.js",
     "seed": "tsx src/db/seed.ts",
     "seed:samples": "tsx src/db/seed-sample-articles.ts",
+    "db:clear": "tsx src/db/clear.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
